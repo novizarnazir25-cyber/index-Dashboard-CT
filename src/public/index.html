@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CircularTrace - Mesin Pengukur Sirkularitas & Keberlanjutan Kopi</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div>
+        <h1>☕ CircularTrace Calculation Engine</h1>
+        <div class="subtitle">Platform Pengukuran Sirkularitas (CT-CCI) & Keberlanjutan (CT-SDI) Berbasis Aliran Sumber Daya</div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <a href="#panduan-metodologi" style="background: rgba(255,255,255,0.22); color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.35)'" onmouseout="this.style.background='rgba(255,255,255,0.22)'">
+          📘 Panduan & Metodologi ⬇
+        </a>
+        <div class="badge-version">CT-CCI-Lite-1.0 & CT-SDI-Lite-1.0</div>
+      </div>
+    </header>
+
+    <!-- Presets Bar for Acceptance Criteria -->
+    <div class="presets-bar">
+      <div class="label">🎯 Preset Pengujian Kriteria Penerimaan Mesin:</div>
+      <div class="preset-buttons">
+        <button class="btn-preset" onclick="loadPreset('section7')">1. Data Contoh Bagian 7 (CCI 56.04 & SDI 84.44)</button>
+        <button class="btn-preset" onclick="loadPreset('energyMissing')">2. Data Energi Hilang (RE Null & DRAFT)</button>
+        <button class="btn-preset" onclick="loadPreset('noSupport')">3. Tanpa Bahan Pendukung (CMI N/A & Reweight)</button>
+        <button class="btn-preset" onclick="loadPreset('destinationExceeds')">4. Massa Tujuan Melebihi Asal (Error)</button>
+        <button class="btn-preset" onclick="loadPreset('cascaraNades')">5. Cascara dengan NADES (BVC = 0.90)</button>
+        <button class="btn-preset" onclick="loadPreset('safeguardFail')">6A. Pengaman FAIL (BLOCKED)</button>
+        <button class="btn-preset" onclick="loadPreset('safeguardUnknown')">6B. Pengaman UNKNOWN (DRAFT)</button>
+      </div>
+    </div>
+
+    <!-- Main Layout Grid -->
+    <div class="main-layout">
+      <!-- Left Column: Role-Based Stepped Form -->
+      <div class="left-col">
+        <div class="card">
+          <div class="card-title">
+            <span>📝 Formulir Data Mentah & Bukti</span>
+            <span id="role-badge" style="font-size: 11px; background: #e9ecef; padding: 3px 8px; border-radius: 4px;">PROCESSOR</span>
+          </div>
+
+          <div class="role-selector">
+            <button class="role-tab" onclick="switchRole('FARMER')">Petani</button>
+            <button class="role-tab active" onclick="switchRole('PROCESSOR')">Pengolah</button>
+            <button class="role-tab" onclick="switchRole('WAREHOUSE_EXPORTER')">Gudang</button>
+            <button class="role-tab" onclick="switchRole('ROASTERY')">Roastery</button>
+            <button class="role-tab" onclick="switchRole('VERIFIER_AUDITOR')">Auditor</button>
+          </div>
+
+          <div class="form-notice">
+            🔒 <strong>Audit Rule:</strong> Pengguna hanya mengisi data pengukuran mentah dan bukti fisik. Skor CCI dan SDI dihitung di server dan tidak dapat diinput manual.
+          </div>
+
+          <form id="calculator-form" onsubmit="event.preventDefault(); triggerCalculation();">
+            <div id="dynamic-form-fields">
+              <!-- Rendered dynamically by app.js -->
+            </div>
+
+            <button type="submit" class="btn-calculate" style="margin-top: 16px;">
+              ⚡ Hitung Skor di Server (9-Step Pipeline)
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Right Column: Results & Audit Snapshots -->
+      <div class="right-col">
+        <!-- Status Banner -->
+        <div id="status-banner" class="status-banner status-DRAFT">
+          <div>
+            <span style="font-size: 12px; text-transform: uppercase;">Status Penilaian:</span>
+            <div id="status-title" style="font-size: 20px;">DRAFT</div>
+          </div>
+          <div id="coverage-box" style="text-align: right; font-size: 13px;">
+            <div>Coverage Indikator: <span id="coverage-pct">0%</span></div>
+            <div id="status-sub" style="font-size: 11px; opacity: 0.9;">Menunggu data lengkap / audit bukti</div>
+          </div>
+        </div>
+
+        <!-- Visualisasi Diagram Indeks (Lingkaran & Batang) -->
+        <div class="card" style="padding: 16px 20px;">
+          <div class="card-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span>⭕ Diagram Lingkaran & Penjelasan Indeks</span>
+              <div style="display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #f8f9fa;">
+                <button id="btn-chart-circular" onclick="switchMainChart('circular')" style="border: none; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; background: var(--primary); color: white;">
+                  ⭕ Diagram Lingkaran
+                </button>
+                <button id="btn-chart-bar" onclick="switchMainChart('bar')" style="border: none; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; background: transparent; color: var(--text-main);">
+                  📊 Diagram Batang
+                </button>
+              </div>
+            </div>
+            <a id="chart-fullscreen-link" href="circular_indices_chart.html" target="_blank" style="font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 600; background: #e8f5e9; padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+              Buka Layar Penuh ↗
+            </a>
+          </div>
+          <iframe 
+            id="chart-frame"
+            src="circular_indices_chart.html" 
+            style="width: 100%; height: 640px; border: none; border-radius: 8px; background: transparent;" 
+            title="Visualisasi Indeks CircularTrace">
+          </iframe>
+        </div>
+
+        <!-- 5 Non-Compensable Safeguards -->
+        <div class="card">
+          <div class="card-title">
+            <span>🛡️ Pengaman Non-Kompensasi (Safeguards)</span>
+            <span id="safeguard-overall" style="font-size: 11px; font-weight: 700;">PASS</span>
+          </div>
+          <div id="safeguards-container" class="safeguards-grid">
+            <!-- Rendered by app.js -->
+          </div>
+          <div id="safeguard-explanation" style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">
+            Satu FAIL memblokir klaim (BLOCKED). UNKNOWN menahan publikasi (DRAFT).
+          </div>
+        </div>
+
+        <!-- Detailed Breakdown -->
+        <div class="card">
+          <div class="card-title">
+            <span>📊 Rincian Komponen Aliran & Dimensi</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Skala 0–100 / Rasio 0–1</span>
+          </div>
+          <table class="breakdown-table">
+            <thead>
+              <tr>
+                <th>Komponen / Dimensi</th>
+                <th>Nilai Komponen</th>
+                <th>Bobot Efektif</th>
+                <th>Kontribusi Skor</th>
+                <th>Keterangan Bukti</th>
+              </tr>
+            </thead>
+            <tbody id="breakdown-body">
+              <!-- Rendered by app.js -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Calculation Snapshots History -->
+        <div class="card">
+          <div class="card-title">
+            <span>📜 Riwayat Snapshot Kalkulasi Berversi (Audit Trail)</span>
+            <span id="snapshot-count" style="font-size: 11px; background: #e9ecef; padding: 2px 6px; border-radius: 4px;">0 Snapshot</span>
+          </div>
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Snapshot ID</th>
+                <th>Waktu (UTC)</th>
+                <th>Status</th>
+                <th>CCI</th>
+                <th>SDI</th>
+                <th>Coverage</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Belum ada snapshot kalkulasi tersimpan.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panduan & Metodologi Penghitungan (CircularTrace Guide & Methodology) -->
+    <section id="panduan-metodologi" class="guide-card">
+      <div class="card-title" style="border-bottom: none; margin-bottom: 6px; padding-bottom: 0;">
+        <span style="font-size: 18px; display: flex; align-items: center; gap: 8px;">
+          <span>📚</span> <span>Panduan Penggunaan & Metodologi Penghitungan CircularTrace</span>
+        </span>
+        <span style="font-size: 11px; background: #e8f5e9; color: var(--primary); font-weight: 700; padding: 4px 10px; border-radius: 4px;">
+          Spesifikasi Mesin: Prof. Dr. Novizar Nazir (4 Okt 2026)
+        </span>
+      </div>
+      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 18px;">
+        Panduan komprehensif bagi seluruh pelaku rantai pasok kopi (Petani, Pengolah, Gudang/Eksportir, Roastery, dan Auditor) mengenai tata cara pengumpulan data bukti fisik serta algoritma kalkulasi indeks deterministik skala 0–100%.
+      </p>
+
+      <!-- Tabs Navigation -->
+      <div class="guide-tabs">
+        <button class="guide-tab-btn active" onclick="switchGuideTab('tab-metodologi-cci')">📐 Metodologi CT-CCI (Sirkularitas)</button>
+        <button class="guide-tab-btn" onclick="switchGuideTab('tab-metodologi-sdi')">🌿 Metodologi CT-SDI (Keberlanjutan)</button>
+        <button class="guide-tab-btn" onclick="switchGuideTab('tab-safeguards')">🛡️ 5 Pengaman Kritis (Non-Kompensasi)</button>
+        <button class="guide-tab-btn" onclick="switchGuideTab('tab-alur')">🚀 Panduan Alur Pengoperasian</button>
+        <button class="guide-tab-btn" onclick="switchGuideTab('tab-skala')">📊 Interpretasi Kategori & Skala 100%</button>
+      </div>
+
+      <!-- TAB 1: METODOLOGI CT-CCI -->
+      <div id="tab-metodologi-cci" class="guide-content-panel active">
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+          1. Indeks Sirkularitas Kopi: CT-CCI-Lite-1.0 (Coffee Circularity Index)
+        </h4>
+        <p style="margin-bottom: 10px;">
+          CT-CCI mengukur tingkat ketertutupan siklus material, energi, dan air pada batas fasilitas serta agregasi rantai pasok kopi. Pengukuran berfokus pada <strong>aliran fisik aktual yang terverifikasi bukti</strong>, bukan estimasi atau persepsi subjektif. Nilai indeks berada pada rentang <strong>0,00% hingga 100,00%</strong>.
+        </p>
+
+        <div class="method-formula">
+          Rumus Utama: CT-CCI = (CMI × w_CMI + BVC × w_BVC + WC × w_WC + RE × w_RE) × 100%
+        </div>
+
+        <div class="method-grid">
+          <!-- BVC -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #059669; font-size: 13px; margin-bottom: 6px;">
+              A. BVC (Valorisasi Biomassa / Hasil Samping) - Bobot Dasar: 45%
+            </div>
+            <p style="font-size: 12px; color: var(--text-main); margin-bottom: 6px;">
+              Mengukur porsi massa kering pulp, lendir (mucilage), dan kulit kopi (husk/cascara) yang dialihkan dari tempat pembuangan akhir (TPA) menjadi produk bernilai tambah:
+            </p>
+            <div style="background: #eef2f6; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 6px;">
+              BVC = [Σ (Massa Kering Termanfaatkan × Faktor Valorisasi)] / Total Massa Kering Dihasilkan
+            </div>
+            <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px; margin-bottom: 6px;">
+              <li><strong>Tier-1 (Faktor 1.0)</strong>: Ekstraksi pangan/kosmetik/farmasi berdaya guna tinggi (mis. cascara bernilai pangan), biochar, pupuk kompos terverifikasi.</li>
+              <li><strong>Tier-2 (Faktor 0.5)</strong>: Pakan ternak atau pemanfaatan tingkat sekunder.</li>
+              <li><strong>Tier-3 (Faktor 0.0)</strong>: Dibuang ke landfill atau dibakar terbuka tanpa pemanfaatan energi.</li>
+              <li><em>Aturan Pelarut NADES/Air</em>: Penambahan pelarut (ekstraktan) tidak menambah massa kering cascara yang dikreditkan.</li>
+            </ul>
+          </div>
+
+          <!-- CMI -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #0d9488; font-size: 13px; margin-bottom: 6px;">
+              B. CMI (Circular Material Input / Bahan Masukan Sirkular) - Bobot Dasar: 20%
+            </div>
+            <p style="font-size: 12px; color: var(--text-main); margin-bottom: 6px;">
+              Mengukur proporsi bahan pendukung operasional (pupuk, agens hayati) yang berasal dari input organik lokal tersertifikasi vs pupuk kimia sintetis:
+            </p>
+            <div style="background: #eef2f6; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 6px;">
+              CMI = Massa Input Organik Terverifikasi / Total Massa Bahan Pendukung
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted);">
+              <strong>Aturan Renormalisasi:</strong> Jika fasilitas tidak menggunakan bahan pendukung sama sekali (mis. pabrik kering / roastery), CMI dinyatakan <code>NOT_APPLICABLE</code>. Bobot 20% otomatis diredistribusikan secara proporsional ke BVC (menjadi 56,25%), WC (25,00%), dan RE (18,75%).
+            </p>
+          </div>
+
+          <!-- WC -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #0284c7; font-size: 13px; margin-bottom: 6px;">
+              C. WC (Water Circularity / Sirkulasi & Daur Ulang Air) - Bobot Dasar: 20%
+            </div>
+            <p style="font-size: 12px; color: var(--text-main); margin-bottom: 6px;">
+              Mengukur tingkat penggunaan kembali air dalam proses basah (<em>full-washed / honey</em>):
+            </p>
+            <div style="background: #eef2f6; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 6px;">
+              WC = Volume Air Daur Ulang / (Volume Air Baru + Volume Air Daur Ulang)
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted);">
+              Data wajib diverifikasi melalui catatan meter air (<em>flowmeter</em>) terkalibrasi.
+            </p>
+          </div>
+
+          <!-- RE -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">
+              D. RE (Renewable Energy / Energi Terbarukan Mandiri) - Bobot Dasar: 15%
+            </div>
+            <p style="font-size: 12px; color: var(--text-main); margin-bottom: 6px;">
+              Mengukur proporsi energi terbarukan atau energi pulihan terhadap total konsumsi:
+            </p>
+            <div style="background: #eef2f6; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 6px;">
+              RE = kWh Ekuivalen Energi Terbarukan / Total kWh Ekuivalen Konsumsi
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted);">
+              <strong>Aturan Data Hilang:</strong> Jika data total konsumsi energi hilang (null), nilai RE tidak boleh dianggap nol, melainkan <code>null</code> dan status penilaian menjadi <code>DRAFT</code> sampai data lengkap.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: METODOLOGI CT-SDI -->
+      <div id="tab-metodologi-sdi" class="guide-content-panel">
+        <h4 style="font-size: 14px; font-weight: 700; color: #b45309; margin-bottom: 8px;">
+          2. Indeks Keberlanjutan Kopi: CT-SDI-Lite-1.0 (Sustainability Development Index)
+        </h4>
+        <p style="margin-bottom: 10px;">
+          CT-SDI mengukur kinerja keberlanjutan menyeluruh yang mengintegrasikan 4 pilar kerangka kerja <strong>FAO SAFA (Sustainability Assessment of Food and Agriculture Systems)</strong> dan standar ESG global. Setiap pilar memiliki bobot seimbang masing-masing <strong>25%</strong> dengan skala penilaian total <strong>0,00% hingga 100,00%</strong>.
+        </p>
+
+        <div class="method-formula" style="background: #78350f; color: #fde68a;">
+          Rumus Utama: CT-SDI = (0,25 × E) + (0,25 × S) + (0,25 × Ec) + (0,25 × G)
+        </div>
+
+        <div class="method-grid">
+          <!-- Environmental -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #059669; font-size: 13px; margin-bottom: 6px;">
+              1. Dimensi Lingkungan (Environmental - E): Bobot 25%
+            </div>
+            <p style="font-size: 12px; margin-bottom: 6px;">Menilai dampak operasi rantai pasok terhadap ekosistem alami:</p>
+            <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px;">
+              <li><strong>E1 - Efisiensi Air Proses</strong>: Rasio pemakaian air per kg kopi glondong (target: ≤ 6 L/kg).</li>
+              <li><strong>E2 - Intensitas Energi</strong>: Konsumsi energi per kg green bean (target: ≤ 0,9 kWh/kg).</li>
+              <li><strong>E3 - Konservasi Tanah & Kanopi</strong>: Penerapan pohon penaung dan penahan erosi lereng.</li>
+            </ul>
+          </div>
+
+          <!-- Social -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #d97706; font-size: 13px; margin-bottom: 6px;">
+              2. Dimensi Sosial (Social - S): Bobot 25%
+            </div>
+            <p style="font-size: 12px; margin-bottom: 6px;">Menilai kesejahteraan, keadilan, dan keselamatan tenaga kerja:</p>
+            <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px;">
+              <li><strong>S1 - Upah Layak & Kesetaraan</strong>: Kepatuhan upah minimum regional dan kesetaraan gender.</li>
+              <li><strong>S2 - Keselamatan Kerja (K3)</strong>: Penyediaan APD, sanitasi layak, dan asuransi kecelakaan kerja.</li>
+              <li><strong>S3 - Pengembangan Kapasitas</strong>: Pelatihan budidaya berkelanjutan bagi buruh tani dan pemuda.</li>
+            </ul>
+          </div>
+
+          <!-- Economic -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #0284c7; font-size: 13px; margin-bottom: 6px;">
+              3. Dimensi Ekonomi (Economic - Ec): Bobot 25%
+            </div>
+            <p style="font-size: 12px; margin-bottom: 6px;">Menilai viabilitas ekonomi dan ketahanan mata pencaharian petani:</p>
+            <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px;">
+              <li><strong>Ec1 - Margin Keuntungan Petani</strong>: Rasio margin harga jual terhadap biaya pokok produksi (target: ≥ 20%).</li>
+              <li><strong>Ec2 - Kepastian Pembayaran</strong>: Pembayaran tepat waktu saat panen diserahkan (tanpa tunda berkepanjangan).</li>
+              <li><strong>Ec3 - Mutu & Diversifikasi</strong>: Persentase hasil petik merah serta diversifikasi pendapatan tanaman sela.</li>
+            </ul>
+          </div>
+
+          <!-- Governance -->
+          <div class="method-box">
+            <div style="font-weight: 700; color: #7c3aed; font-size: 13px; margin-bottom: 6px;">
+              4. Dimensi Tata Kelola (Governance - G): Bobot 25%
+            </div>
+            <p style="font-size: 12px; margin-bottom: 6px;">Menilai transparansi, akuntabilitas, dan keterlacakan rantai pasok:</p>
+            <ul style="font-size: 11px; color: var(--text-muted); padding-left: 16px;">
+              <li><strong>G1 - Keterlacakan Lot Panen (CDL)</strong>: Transparansi data rantai pasok dari koordinat kebun hingga ekspor.</li>
+              <li><strong>G2 - Legalitas Lahan</strong>: Kepemilikan sertifikat sah / izin perhutanan sosial bebas sengketa.</li>
+              <li><strong>G3 - Akuntabilitas Organisasi</strong>: Audit internal koperasi, transparansi buku kas, dan musyawarah anggota.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 6px; padding: 10px 14px; margin-top: 14px; font-size: 11px; color: #9d174d;">
+          📌 <strong>Syarat Cakupan Indikator (Coverage):</strong> Minimal 75% dari indikator inti (9 dari 12 indikator) wajib terisi data valid agar penilaian dapat berstatus <code>READY_FOR_REVIEW</code>. Jika kurang dari 75%, status tetap tertahan di <code>DRAFT</code>.
+        </div>
+      </div>
+
+      <!-- TAB 3: SAFEGUARDS -->
+      <div id="tab-safeguards" class="guide-content-panel">
+        <h4 style="font-size: 14px; font-weight: 700; color: #dc2626; margin-bottom: 8px;">
+          3. Pengaman Non-Kompensasi (5 Critical Safeguards)
+        </h4>
+        <p style="margin-bottom: 12px;">
+          CircularTrace menganut prinsip <strong>Non-Compensable Safeguards</strong>: nilai kinerja teknis atau ekonomi yang tinggi <em>tidak boleh menutupi atau mengompensasi</em> pelanggaran etika dan keberlanjutan mutlak. Kegagalan pada salah satu pengaman langsung membatalkan kelayakan sertifikasi.
+        </p>
+
+        <div style="overflow-x: auto;">
+          <table class="breakdown-table" style="margin-top: 4px;">
+            <thead>
+              <tr>
+                <th style="width: 22%;">Isu Pengaman Mutlak</th>
+                <th style="width: 28%;">Dasar Acuan Regulasi</th>
+                <th style="width: 32%;">Kriteria Kelulusan (PASS)</th>
+                <th style="width: 18%;">Konsekuensi Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>1. Kerja Paksa (Forced Labor)</strong></td>
+                <td>Konvensi ILO No. 29 & 105</td>
+                <td>Tidak ada penahanan identitas, jeratan utang ijon, atau paksaan kerja.</td>
+                <td><span style="color: #dc2626; font-weight: 700;">FAIL → BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td><strong>2. Pekerja Anak (Child Labor)</strong></td>
+                <td>Konvensi ILO No. 138 & 182</td>
+                <td>Anak usia sekolah tidak dipekerjakan dalam aktivitas berbahaya atau jam sekolah.</td>
+                <td><span style="color: #dc2626; font-weight: 700;">FAIL → BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td><strong>3. Deforestasi (EUDR)</strong></td>
+                <td>EU Deforestation Regulation (Cut-off: 31 Des 2020)</td>
+                <td>Biji kopi tidak berasal dari lahan hutan yang dibuka setelah 31 Desember 2020.</td>
+                <td><span style="color: #dc2626; font-weight: 700;">FAIL → BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td><strong>4. Pestisida Terlarang</strong></td>
+                <td>WHO Kelas 1a/1b & Konvensi Stockholm (POPs)</td>
+                <td>Nol penggunaan bahan aktif terlarang (Parakuat, Klorpirifos, Endosulfan).</td>
+                <td><span style="color: #dc2626; font-weight: 700;">FAIL → BLOCKED</span></td>
+              </tr>
+              <tr>
+                <td><strong>5. Pencemaran Berat</strong></td>
+                <td>Baku Mutu Limbah Cair Industri Kopi (KLHK)</td>
+                <td>Air limbah proses basah dinetralkan di IPAL (tidak dibuang langsung ke sungai).</td>
+                <td><span style="color: #dc2626; font-weight: 700;">FAIL → BLOCKED</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="method-grid" style="margin-top: 14px;">
+          <div style="background: #fee2e2; border: 1px solid #fca5a5; padding: 12px; border-radius: 6px; font-size: 11px; color: #991b1b;">
+            ⛔ <strong>Jika Ditemukan FAIL:</strong><br>
+            Sistem langsung menetapkan status <strong>BLOCKED</strong>. Nilai CT-CCI dan CT-SDI tidak dapat diterbitkan atau diklaim ke paspor produk pasar global.
+          </div>
+          <div style="background: #fef3c7; border: 1px solid #fde68a; padding: 12px; border-radius: 6px; font-size: 11px; color: #92400e;">
+            ⚠️ <strong>Jika Berstatus UNKNOWN:</strong><br>
+            Sistem menetapkan status <strong>DRAFT</strong>. Nilai indikator numerik tidak dapat diaudit atau disertifikasi sebelum bukti verifikasi lapangan dipenuhi.
+          </div>
+          <div style="background: #d1fae5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 6px; font-size: 11px; color: #065f46;">
+            ✅ <strong>Jika Seluruh 5 Isu PASS:</strong><br>
+            Penilaian berstatus <strong>READY_FOR_REVIEW</strong> atau <strong>VERIFIED</strong>, memenuhi syarat penerbitan Digital Product Passport (DPP).
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: ALUR PENGGUNAAN -->
+      <div id="tab-alur" class="guide-content-panel">
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+          4. Panduan Alur Pengoperasian Aplikasi (5 Langkah Praktis)
+        </h4>
+        <div class="method-grid">
+          <div class="method-box">
+            <div style="font-weight: 700; color: var(--primary); font-size: 13px; margin-bottom: 4px;">
+              Langkah 1: Tentukan Peran Fasilitas
+            </div>
+            <p style="font-size: 12px; color: var(--text-main);">
+              Pilih tab peran di atas formulir: <strong>Petani</strong>, <strong>Pengolah (Processor)</strong>, <strong>Gudang/Eksportir</strong>, <strong>Roastery</strong>, atau <strong>Auditor</strong>. Formulir akan menyesuaikan secara dinamis sesuai batas operasional fasilitas.
+            </p>
+          </div>
+
+          <div class="method-box">
+            <div style="font-weight: 700; color: var(--primary); font-size: 13px; margin-bottom: 4px;">
+              Langkah 2: Isi Data Pengukuran & Bukti
+            </div>
+            <p style="font-size: 12px; color: var(--text-main);">
+              Masukkan angka fisik riil (kg biomassa, liter air, kWh listrik) dan cantumkan nomor dokumen bukti verifikasi (tiket timbangan, nota pembelian, hasil uji lab).
+            </p>
+          </div>
+
+          <div class="method-box">
+            <div style="font-weight: 700; color: var(--primary); font-size: 13px; margin-bottom: 4px;">
+              Langkah 3: Eksekusi Kalkulasi di Server
+            </div>
+            <p style="font-size: 12px; color: var(--text-main);">
+              Klik tombol <strong>"⚡ Hitung Skor di Server"</strong>. Mesin kalkulasi akan mengeksekusi pipa 9 langkah: rekonsiliasi massa, evaluasi pengaman, kalkulasi BVC/CMI/WC/RE, normalisasi bobot, dan perekaman snapshot berversi.
+            </p>
+          </div>
+
+          <div class="method-box">
+            <div style="font-weight: 700; color: var(--primary); font-size: 13px; margin-bottom: 4px;">
+              Langkah 4: Tinjau Diagram & Rincian
+            </div>
+            <p style="font-size: 12px; color: var(--text-main);">
+              Amati <strong>Diagram Lingkaran</strong> dan <strong>Diagram Batang</strong> untuk memantau capaian indeks terhadap target 100%. Periksa tabel rincian komponen aliran untuk melihat area peningkatan efisiensi.
+            </p>
+          </div>
+
+          <div class="method-box">
+            <div style="font-weight: 700; color: var(--primary); font-size: 13px; margin-bottom: 4px;">
+              Langkah 5: Uji Kasus dengan Tombol Preset
+            </div>
+            <p style="font-size: 12px; color: var(--text-main);">
+              Gunakan tombol preset di bar atas (Data Bagian 7, Energi Hilang, Tanpa Bahan Pendukung, Cascara NADES, Pengaman FAIL) untuk mensimulasikan kepatuhan dan validasi aturan mesin.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: SKALA & INTERPRETASI -->
+      <div id="tab-skala" class="guide-content-panel">
+        <h4 style="font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">
+          5. Matriks Interpretasi Nilai Indeks (Skala Persentase Maksimum 100%)
+        </h4>
+        <p style="margin-bottom: 12px;">
+          Kedua indeks (CT-CCI dan CT-SDI) distandardisasi pada skala <strong>0% hingga 100%</strong> untuk mempermudah evaluasi manajerial dan komunikasi kepada pembeli internasional (<em>buyers</em>):
+        </p>
+
+        <div style="overflow-x: auto;">
+          <table class="breakdown-table">
+            <thead>
+              <tr>
+                <th style="width: 18%;">Rentang Skor</th>
+                <th style="width: 20%;">Kategori Sirkularitas (CCI)</th>
+                <th style="width: 20%;">Kategori Keberlanjutan (SDI)</th>
+                <th style="width: 42%;">Arti Manajerial & Rekomendasi Tindakan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>0% – &lt;20%</strong></td>
+                <td><span style="color: #dc2626; font-weight: 700;">Sangat Rendah</span></td>
+                <td><span style="color: #dc2626; font-weight: 700;">Sangat Rendah</span></td>
+                <td>Model linear konvensional (banyak limbah ke TPA, risiko lingkungan tinggi). Perlu audit menyeluruh dan penanganan limbah dasar.</td>
+              </tr>
+              <tr>
+                <td><strong>20% – &lt;40%</strong></td>
+                <td><span style="color: #ea580c; font-weight: 700;">Rendah</span></td>
+                <td><span style="color: #ea580c; font-weight: 700;">Rendah</span></td>
+                <td>Inisiasi awal pemanfaatan biomassa atau kepatuhan sosial parsial. Perlu komitmen manajemen untuk program daur ulang air dan pupuk hayati.</td>
+              </tr>
+              <tr>
+                <td><strong>40% – &lt;60%</strong></td>
+                <td><span style="color: #d97706; font-weight: 700;">Awal (Early Stage)</span></td>
+                <td><span style="color: #d97706; font-weight: 700;">Sedang</span></td>
+                <td>Sebagian besar limbah padat berhasil divalorisasi (BVC aktif). Area prioritas berikutnya: efisiensi air proses dan konversi ke energi surya/biogas.</td>
+              </tr>
+              <tr>
+                <td><strong>60% – &lt;80%</strong></td>
+                <td><span style="color: #0284c7; font-weight: 700;">Menengah</span></td>
+                <td><span style="color: #0284c7; font-weight: 700;">Baik</span></td>
+                <td>Praktik sirkularitas terintegrasi dan tata kelola transparan. Siap memasuki rantai pasok perdagangan kopi berkelanjutan tier menengah.</td>
+              </tr>
+              <tr>
+                <td><strong>80% – 100%</strong></td>
+                <td><span style="color: #059669; font-weight: 700;">Maju (Advanced)</span></td>
+                <td><span style="color: #059669; font-weight: 700;">Tinggi (High Sustainability)</span></td>
+                <td>Kinerja sirkular dan keberlanjutan kelas dunia. Memenuhi seluruh regulasi ekspor global (EUDR, SAFA, DPP Paspor Digital).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

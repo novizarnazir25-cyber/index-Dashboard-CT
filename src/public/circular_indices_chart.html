@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    .circular-chart {
+      display: block;
+      margin: 0 auto;
+      max-width: 140px;
+      max-height: 140px;
+    }
+    .circle-bg {
+      fill: none;
+      stroke: var(--border, #e5e7eb);
+      stroke-width: 3.6;
+    }
+    .circle-progress {
+      fill: none;
+      stroke-width: 3.6;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+      transition: stroke-dasharray 0.8s ease-out;
+    }
+    .cci-stroke { stroke: #059669; }
+    .sdi-stroke { stroke: #d97706; }
+    .percentage-text {
+      fill: var(--foreground, #111827);
+      font-size: 0.50em;
+      font-weight: 800;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+    .category-text {
+      fill: var(--muted-foreground, #6b7280);
+      font-size: 0.22em;
+      font-weight: 600;
+      text-anchor: middle;
+    }
+  </style>
+</head>
+<body class="bg-transparent text-[var(--foreground)] antialiased p-2">
+  <div class="bg-[var(--card)] text-[var(--foreground)] border border-[var(--border)] rounded-xl p-4 shadow-sm max-w-2xl mx-auto">
+    
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-[var(--border)] pb-2.5 mb-3">
+      <div>
+        <h3 class="font-bold text-sm text-[var(--foreground)] flex items-center gap-1.5">
+          <span>☕</span> <span>CircularTrace: Diagram Lingkaran Indeks Sirkularitas & Keberlanjutan</span>
+        </h3>
+        <p class="text-xs text-[var(--muted-foreground)]">Kalkulasi Mesin Terverifikasi • Skala Maksimum: 100%</p>
+      </div>
+      <span id="header-status-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+        Status: READY_FOR_REVIEW
+      </span>
+    </div>
+
+    <!-- Dual Circular Charts Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      
+      <!-- Chart 1: CT-CCI-Lite -->
+      <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">1. CT-CCI-Lite-1.0</span>
+          <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">Sirkularitas</span>
+        </div>
+        <p class="text-[11px] text-[var(--muted-foreground)] text-left w-full mb-2">Aliran Material & Energi Fisik</p>
+
+        <!-- SVG Donut Chart -->
+        <svg viewBox="0 0 36 36" class="circular-chart">
+          <!-- Background Circle (Gray Track) -->
+          <path class="circle-bg"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <!-- Progress Arc: 56.04% of 100 -->
+          <path id="cci-circle-path" class="circle-progress cci-stroke"
+            stroke-dasharray="56.04, 100"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <text id="cci-percent-text" x="18" y="16.5" class="percentage-text">56,04%</text>
+          <text id="cci-cat-text" x="18" y="22.5" class="category-text">Kategori: Awal</text>
+        </svg>
+
+        <!-- Components Breakdown -->
+        <div class="w-full mt-2.5 pt-2.5 border-t border-[var(--border)] text-[11px] space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• BVC (Valorisasi Biomassa):</span>
+            <span id="val-bvc" class="font-bold text-emerald-700 dark:text-emerald-400">37,50%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• CMI (Input Sirkular):</span>
+            <span id="val-cmi" class="font-semibold">9,33%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• WC (Daur Ulang Air):</span>
+            <span id="val-wc" class="font-semibold">5,45%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• RE (Energi Terbarukan):</span>
+            <span id="val-re" class="font-semibold">3,75%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart 2: CT-SDI-Lite -->
+      <div class="p-3.5 rounded-lg border border-[var(--border)] bg-[var(--background)] flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">2. CT-SDI-Lite-1.0</span>
+          <span class="text-[10px] font-bold text-amber-700 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded-full">Keberlanjutan</span>
+        </div>
+        <p class="text-[11px] text-[var(--muted-foreground)] text-left w-full mb-2">4 Dimensi ESG & SAFA</p>
+
+        <!-- SVG Donut Chart -->
+        <svg viewBox="0 0 36 36" class="circular-chart">
+          <!-- Background Circle (Gray Track) -->
+          <path class="circle-bg"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <!-- Progress Arc: 84.44% of 100 -->
+          <path id="sdi-circle-path" class="circle-progress sdi-stroke"
+            stroke-dasharray="84.44, 100"
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+          />
+          <text id="sdi-percent-text" x="18" y="16.5" class="percentage-text">84,44%</text>
+          <text id="sdi-cat-text" x="18" y="22.5" class="category-text">Kategori: Tinggi</text>
+        </svg>
+
+        <!-- Dimensions Breakdown -->
+        <div class="w-full mt-2.5 pt-2.5 border-t border-[var(--border)] text-[11px] space-y-1">
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• Lingkungan (E - 25%):</span>
+            <span id="val-dim-e" class="font-semibold">20,83% <span class="text-[10px] text-gray-400">(83,3)</span></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• Sosial (S - 25%):</span>
+            <span id="val-dim-s" class="font-bold text-amber-700 dark:text-amber-400">21,39% <span class="text-[10px] text-gray-400">(85,6)</span></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• Ekonomi (Ec - 25%):</span>
+            <span id="val-dim-ec" class="font-semibold">20,83% <span class="text-[10px] text-gray-400">(83,3)</span></span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-[var(--muted-foreground)]">• Tata Kelola (G - 25%):</span>
+            <span id="val-dim-g" class="font-bold text-amber-700 dark:text-amber-400">21,39% <span class="text-[10px] text-gray-400">(85,6)</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Explanation of Index Values -->
+    <div class="mt-3.5 pt-3 border-t border-[var(--border)] space-y-2">
+      <div class="text-xs font-bold text-[var(--foreground)] flex items-center gap-1.5">
+        <span>📖</span> <span>Penjelasan Maksud Angka Indeks:</span>
+      </div>
+      
+      <!-- CCI Explanation -->
+      <div class="p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[11px] leading-relaxed">
+        <div id="exp-cci-title" class="font-bold text-emerald-800 dark:text-emerald-300 mb-0.5 flex items-center justify-between">
+          <span>• CT-CCI = 56,04% (Kategori: Awal / Early Circularity)</span>
+          <span class="text-[10px] bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.2 rounded font-semibold">Skala Maks: 100%</span>
+        </div>
+        <p id="exp-cci-body" class="text-gray-700 dark:text-gray-300">
+          <strong>Maksud Angka:</strong> Mengukur tingkat ketertutupan siklus material fisik, biomassa, air, dan energi. Angka <strong>56,04%</strong> menunjukkan bahwa lebih dari separuh potensi sirkularitas rantai pasok kopi telah tercapai. Pendorong terbesarnya adalah <strong>Valorisasi Biomassa (BVC = 37,50%)</strong> karena limbah pulp dan kulit kopi diolah menjadi pupuk kompos dan pakan ternak. Peluang peningkatan utama ada pada <strong>daur ulang air (WC = 5,45%)</strong> dan <strong>pemanfaatan energi terbarukan (RE = 3,75%)</strong>.
+        </p>
+      </div>
+
+      <!-- SDI Explanation -->
+      <div class="p-2.5 rounded-lg bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] leading-relaxed">
+        <div id="exp-sdi-title" class="font-bold text-amber-800 dark:text-amber-300 mb-0.5 flex items-center justify-between">
+          <span>• CT-SDI = 84,44% (Kategori: Tinggi / High Sustainability)</span>
+          <span class="text-[10px] bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200 px-1.5 py-0.2 rounded font-semibold">Skala Maks: 100%</span>
+        </div>
+        <p id="exp-sdi-body" class="text-gray-700 dark:text-gray-300">
+          <strong>Maksud Angka:</strong> Mengukur kinerja keberlanjutan menyeluruh berdasarkan 4 pilar SAFA/ESG (Lingkungan, Sosial, Ekonomi, dan Tata Kelola). Nilai <strong>84,44%</strong> menunjukkan tingkat keberlanjutan yang sangat matang dan seimbang (rata-rata tiap pilar &gt;83%), didukung oleh kepatuhan upah pekerja yang layak, keselamatan kerja, sistem keterlacakan lot panen (CDL), dan konservasi lahan.
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="mt-3 pt-2.5 border-t border-[var(--border)] flex justify-between items-center text-[10px] text-[var(--muted-foreground)]">
+      <span>🛡️ 5 Pengaman Kritis: <strong id="footer-safeguards" class="text-emerald-700 dark:text-emerald-400">PASS (Lolos)</strong></span>
+      <span>Coverage Indikator: <strong id="footer-coverage" class="text-foreground">100% (12/12 Terpenuhi)</strong></span>
+    </div>
+
+  </div>
+
+  <script>
+    function updateCircularChart(snap) {
+      if (!snap || !snap.scores) return;
+
+      const cci = snap.scores.cci;
+      const sdi = snap.scores.sdi;
+
+      // 1. CCI Score & Category
+      const cciScoreNum = cci.displayScore !== null ? Number(cci.displayScore) : (cci.draftScore !== null ? Number(cci.draftScore) : 0);
+      const cciArc = Math.min(Math.max(cciScoreNum, 0), 100);
+      const cciPath = document.getElementById('cci-circle-path');
+      if (cciPath) cciPath.setAttribute('stroke-dasharray', `${cciArc.toFixed(2)}, 100`);
+
+      const cciText = document.getElementById('cci-percent-text');
+      if (cciText) cciText.textContent = `${cciArc.toFixed(2).replace('.', ',')}%`;
+
+      const cciCat = document.getElementById('cci-cat-text');
+      if (cciCat) cciCat.textContent = `Kategori: ${cci.category || 'N/A'}`;
+
+      // 2. SDI Score & Category
+      const sdiScoreNum = sdi.displayScore !== null ? Number(sdi.displayScore) : (sdi.draftScore !== null ? Number(sdi.draftScore) : 0);
+      const sdiArc = Math.min(Math.max(sdiScoreNum, 0), 100);
+      const sdiPath = document.getElementById('sdi-circle-path');
+      if (sdiPath) sdiPath.setAttribute('stroke-dasharray', `${sdiArc.toFixed(2)}, 100`);
+
+      const sdiText = document.getElementById('sdi-percent-text');
+      if (sdiText) sdiText.textContent = `${sdiArc.toFixed(2).replace('.', ',')}%`;
+
+      const sdiCat = document.getElementById('sdi-cat-text');
+      if (sdiCat) sdiCat.textContent = `Kategori: ${sdi.category || 'N/A'}`;
+
+      // 3. Components Breakdown
+      const comp = cci.componentScores || {};
+      const effW = cci.effectiveWeights || { BVC: 0.45, CMI: 0.20, WC: 0.20, RE: 0.15 };
+      
+      const bvcContrib = comp.BVC !== null ? (comp.BVC * (effW.BVC || 0) * 100).toFixed(2).replace('.', ',') + '%' : 'N/A';
+      const cmiContrib = comp.CMI !== null ? (comp.CMI * (effW.CMI || 0) * 100).toFixed(2).replace('.', ',') + '%' : 'N/A';
+      const wcContrib = comp.WC !== null ? (comp.WC * (effW.WC || 0) * 100).toFixed(2).replace('.', ',') + '%' : 'N/A';
+      const reContrib = comp.RE !== null ? (comp.RE * (effW.RE || 0) * 100).toFixed(2).replace('.', ',') + '%' : 'N/A';
+
+      const elBvc = document.getElementById('val-bvc');
+      if (elBvc) elBvc.textContent = bvcContrib;
+      const elCmi = document.getElementById('val-cmi');
+      if (elCmi) elCmi.textContent = cmiContrib;
+      const elWc = document.getElementById('val-wc');
+      if (elWc) elWc.textContent = wcContrib;
+      const elRe = document.getElementById('val-re');
+      if (elRe) elRe.textContent = reContrib;
+
+      // 4. Dimensions Breakdown
+      const dims = sdi.dimensions || {};
+      const eScore = dims.E ? (dims.E.score ?? dims.E.draftScore ?? 0) : 0;
+      const sScore = dims.S ? (dims.S.score ?? dims.S.draftScore ?? 0) : 0;
+      const ecScore = dims.Ec ? (dims.Ec.score ?? dims.Ec.draftScore ?? 0) : 0;
+      const gScore = dims.G ? (dims.G.score ?? dims.G.draftScore ?? 0) : 0;
+
+      const elDimE = document.getElementById('val-dim-e');
+      if (elDimE) elDimE.innerHTML = `${(eScore * 0.25).toFixed(2).replace('.', ',')}% <span class="text-[10px] text-gray-400">(${eScore.toFixed(1).replace('.', ',')})</span>`;
+      const elDimS = document.getElementById('val-dim-s');
+      if (elDimS) elDimS.innerHTML = `${(sScore * 0.25).toFixed(2).replace('.', ',')}% <span class="text-[10px] text-gray-400">(${sScore.toFixed(1).replace('.', ',')})</span>`;
+      const elDimEc = document.getElementById('val-dim-ec');
+      if (elDimEc) elDimEc.innerHTML = `${(ecScore * 0.25).toFixed(2).replace('.', ',')}% <span class="text-[10px] text-gray-400">(${ecScore.toFixed(1).replace('.', ',')})</span>`;
+      const elDimG = document.getElementById('val-dim-g');
+      if (elDimG) elDimG.innerHTML = `${(gScore * 0.25).toFixed(2).replace('.', ',')}% <span class="text-[10px] text-gray-400">(${gScore.toFixed(1).replace('.', ',')})</span>`;
+
+      // 5. Header status & Footer
+      const badgeStatus = document.getElementById('header-status-badge');
+      if (badgeStatus) {
+        badgeStatus.textContent = `Status: ${snap.status}`;
+        if (snap.status === 'BLOCKED') {
+          badgeStatus.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300';
+        } else if (snap.status === 'DRAFT') {
+          badgeStatus.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+        } else {
+          badgeStatus.className = 'text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+        }
+      }
+
+      const sgOverall = document.getElementById('footer-safeguards');
+      if (sgOverall && snap.safeguards) {
+        const isPass = snap.safeguards.overallSafeguardStatus === 'PASS';
+        sgOverall.textContent = snap.safeguards.overallSafeguardStatus;
+        sgOverall.className = isPass ? 'text-emerald-700 dark:text-emerald-400 font-bold' : 'text-red-600 dark:text-red-400 font-bold';
+      }
+
+      const covEl = document.getElementById('footer-coverage');
+      if (covEl && sdi.coveragePct !== undefined) {
+        covEl.textContent = `${sdi.coveragePct}% (${snap.scores.sdi.coveredCount || 12}/${snap.scores.sdi.totalCount || 12} Terpenuhi)`;
+      }
+
+      // 6. Explanations Dynamic Sync
+      const expCciTitle = document.getElementById('exp-cci-title');
+      if (expCciTitle) expCciTitle.innerHTML = `<span>• CT-CCI = ${cciArc.toFixed(2).replace('.', ',')}% (Kategori: ${cci.category || 'N/A'})</span><span class="text-[10px] bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.2 rounded font-semibold">Skala Maks: 100%</span>`;
+      const expCciBody = document.getElementById('exp-cci-body');
+      if (expCciBody) {
+        expCciBody.innerHTML = `<strong>Maksud Angka:</strong> Mengukur tingkat ketertutupan siklus material fisik, biomassa, air, dan energi. Angka <strong>${cciArc.toFixed(2).replace('.', ',')}%</strong> menunjukkan porsi potensi sirkularitas rantai pasok kopi yang berhasil dicapai dari skala 100%. Kontribusi valorisasi biomassa adalah <strong>${bvcContrib}</strong>, input sirkular <strong>${cmiContrib}</strong>, sirkulasi air <strong>${wcContrib}</strong>, dan energi terbarukan <strong>${reContrib}</strong>.`;
+      }
+
+      const expSdiTitle = document.getElementById('exp-sdi-title');
+      if (expSdiTitle) expSdiTitle.innerHTML = `<span>• CT-SDI = ${sdiArc.toFixed(2).replace('.', ',')}% (Kategori: ${sdi.category || 'N/A'})</span><span class="text-[10px] bg-amber-200 dark:bg-amber-900 text-amber-800 dark:text-amber-200 px-1.5 py-0.2 rounded font-semibold">Skala Maks: 100%</span>`;
+      const expSdiBody = document.getElementById('exp-sdi-body');
+      if (expSdiBody) {
+        expSdiBody.innerHTML = `<strong>Maksud Angka:</strong> Mengukur kinerja keberlanjutan menyeluruh berdasarkan 4 pilar SAFA/ESG. Nilai <strong>${sdiArc.toFixed(2).replace('.', ',')}%</strong> (Kategori: <strong>${sdi.category || 'N/A'}</strong>) mencerminkan integrasi pilar Lingkungan (${(eScore * 0.25).toFixed(2).replace('.', ',')}%), Sosial (${(sScore * 0.25).toFixed(2).replace('.', ',')}%), Ekonomi (${(ecScore * 0.25).toFixed(2).replace('.', ',')}%), dan Tata Kelola (${(gScore * 0.25).toFixed(2).replace('.', ',')}%).`;
+      }
+    }
+
+    // Message listener for parent synchronization
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'SYNC_SNAPSHOT') {
+        updateCircularChart(e.data.snapshot);
+      }
+    });
+
+    // Notify parent frame that iframe is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'IFRAME_READY' }, '*');
+        }
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

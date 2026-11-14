@@ -1,0 +1,21 @@
+{
+  "name": "circulartrace-lite-engine",
+  "version": "1.0.0",
+  "description": "CircularTrace CT-CCI-Lite-1.0 and CT-SDI-Lite-1.0 Calculation Engine and Common Data Layer",
+  "main": "src/engine/calculation-pipeline.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test/engine.test.js",
+    "start": "node src/api/server.js"
+  },
+  "keywords": [
+    "circulartrace",
+    "coffee-circularity-index",
+    "ct-cci",
+    "ct-sdi",
+    "sustainability",
+    "circular-economy"
+  ],
+  "author": "CircularTrace Research Team & Antigravity",
+  "license": "Apache-2.0"
+}

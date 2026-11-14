@@ -1,0 +1,336 @@
+// ============================================================================
+// CIRCULARTRACE - Prisma Schema with Common Data Layer (CDL) & Lite Engines
+// Preserves legacy CciScore / CsdiScore models while adding CDL architecture
+// ============================================================================
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------------------------------
+// LEGACY MODELS PRESERVED IN FULL (DO NOT MODIFY OR DROP)
+// ----------------------------------------------------------------------------
+
+model Organization {
+  id                  String     @id @default(uuid())
+  businessId          String     @unique
+  name                String
+  type                String     // FARMER_GROUP, PROCESSOR, WAREHOUSE, ROASTERY, AUTHORITY
+  address             String?
+  province            String?
+  district            String?
+  country             String     @default("Indonesia")
+  pic                 String?
+  phone               String?
+  email               String?
+  contractNumber      String?
+  contractStartDate   DateTime?
+  contractEndDate     DateTime?
+  subscriptionStatus  String     @default("ACTIVE")
+  blockchainAccountId String?
+  isActive            Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  users               User[]
+  lots                Lot[]
+  assessments         Assessment[]
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  name           String
+  passwordHash   String
+  status         String         @default("PENDING_ACTIVATION")
+  organizationId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  verifications  Verification[]
+  safeguardsAudited SafeguardObservation[]
+  evidenceVerified EvidenceRecord[]
+}
+
+model Lot {
+  id             String         @id @default(uuid())
+  lotNumber      String         @unique
+  lotType        String
+  weightKg       Float
+  status         String         @default("RECORDED")
+  organizationId String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  verifications  Verification[]
+  legacyCciScores CciScore[]
+  legacyCsdiScores CsdiScore[]
+}
+
+model Verification {
+  id             String   @id @default(uuid())
+  lotId          String
+  verifierUserId String
+  status         String   // PENDING, VERIFIED, REJECTED
+  verifiedAt     DateTime @default(now())
+
+  lot            Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  verifierUser   User     @relation(fields: [verifierUserId], references: [id], onDelete: Restrict)
+}
+
+model CciScore {
+  id             String   @id @default(uuid())
+  lotId          String
+  totalScore     Float
+  farmerSubscore Float
+  procSubscore   Float
+  tier           String
+  breakdownJson  String
+  version        String   @default("2.1-research")
+  calculatedAt   DateTime @default(now())
+
+  lot            Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+}
+
+model CsdiScore {
+  id             String   @id @default(uuid())
+  lotId          String
+  totalScore     Float
+  envSubscore    Float
+  econSubscore   Float
+  socSubscore    Float
+  tier           String
+  breakdownJson  String
+  version        String   @default("2.1-research")
+  calculatedAt   DateTime @default(now())
+
+  lot            Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+}
+
+// ----------------------------------------------------------------------------
+// NEW COMMON DATA LAYER (CDL) & LITE ENGINE ENTITIES
+// ----------------------------------------------------------------------------
+
+enum SystemBoundaryStage {
+  FARMER
+  PROCESSOR
+  WAREHOUSE_EXPORTER
+  ROASTERY
+}
+
+enum DataQualitySourceType {
+  MEASURED
+  ESTIMATED
+  SECONDARY
+}
+
+enum PathwayCategory {
+  MATERIAL_BIOLOGICAL  // VF = 1.00
+  ENERGY_RECOVERY       // VF = 0.50
+  DISPOSAL_OR_UNUSED    // VF = 0.00
+}
+
+enum SafeguardStatus {
+  PASS
+  FAIL
+  UNKNOWN
+}
+
+enum SnapshotAssessmentStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  VERIFIED
+  PUBLISHED
+  BLOCKED
+}
+
+enum ApplicabilityType {
+  APPLICABLE
+  NOT_APPLICABLE
+}
+
+model Assessment {
+  assessmentId    String              @id @default(uuid())
+  actorId         String
+  periodStart     DateTime
+  periodEnd       DateTime
+  systemBoundary  String              // Facility/Actor boundary description
+  stage           SystemBoundaryStage
+  processType     String              // FULL_WASHED, NATURAL, HONEY, WET_HULLED, ROASTING
+  linkedLotIds    String              // JSON array of Lot IDs processed in this period
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  actor           Organization        @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  materialInputs  MaterialInput[]
+  byproductOrigins ByproductOrigin[]
+  utilities       UtilitiesObservation[]
+  indicators      IndicatorObservation[]
+  safeguards      SafeguardObservation[]
+  snapshots       CalculationSnapshot[]
+
+  @@map("cdl_assessments")
+}
+
+model MaterialInput {
+  flowId          String                @id @default(uuid())
+  assessmentId    String
+  materialType    String                // PACKAGING_DISPOSABLE, PROCESS_INPUT, FERTILIZER, SOIL_AMENDMENT
+  totalKg         Float                 // Non-negative
+  circularKg      Float                 // Recycled/recovered/reused portion
+  basis           DataQualitySourceType @default(MEASURED)
+  evidenceId      String?
+  createdAt       DateTime              @default(now())
+
+  assessment      Assessment            @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+  evidence        EvidenceRecord?       @relation(fields: [evidenceId], references: [evidenceId], onDelete: SetNull)
+
+  @@map("cdl_material_inputs")
+}
+
+model ByproductOrigin {
+  originFlowId    String                @id @default(uuid())
+  assessmentId    String
+  byproductType   String                // PULP, HUSK, PARCHMENT, MUCILAGE, SILVERSKIN, SPENT_GROUNDS
+  wetKg           Float
+  moisturePct     Float                 // 0 <= moisturePct < 100
+  generatedDryKg  Float                 // wetKg * (1 - moisturePct/100)
+  stockChangeKg   Float                 @default(0)
+  createdAt       DateTime              @default(now())
+
+  assessment      Assessment            @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+  destinations    ByproductDestination[]
+
+  @@map("cdl_byproduct_origins")
+}
+
+model ByproductDestination {
+  terminalFlowId  String                @id @default(uuid())
+  originFlowId    String
+  pathway         PathwayCategory       // MATERIAL_BIOLOGICAL, ENERGY_RECOVERY, DISPOSAL_OR_UNUSED
+  destinationDetail String              // e.g. Cascara food extract, Organic compost, Briquettes
+  utilizedDryKg   Float                 // Must not exceed origin dry kg
+  actualUseDate   DateTime?             // Required for numerator inclusion
+  evidenceId      String?
+  createdAt       DateTime              @default(now())
+
+  origin          ByproductOrigin       @relation(fields: [originFlowId], references: [originFlowId], onDelete: Cascade)
+  evidence        EvidenceRecord?       @relation(fields: [evidenceId], references: [evidenceId], onDelete: SetNull)
+
+  @@map("cdl_byproduct_destinations")
+}
+
+model UtilitiesObservation {
+  id                             String    @id @default(uuid())
+  assessmentId                   String
+  waterNewL                      Float     // New water from municipal/ground/rainwater
+  waterReusedL                   Float     // Reused water measured at point of use
+  energyTotalKwhEq               Float?    // Total energy (kWh eq), null if missing
+  energyRenewableRecoveredUnionKwhEq Float? // Renewable & recovered energy union
+  evidenceId                     String?
+  createdAt                      DateTime  @default(now())
+
+  assessment                     Assessment @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+  evidence                       EvidenceRecord? @relation(fields: [evidenceId], references: [evidenceId], onDelete: SetNull)
+
+  @@map("cdl_utilities_observations")
+}
+
+model BenchmarkRegistry {
+  benchmarkId      String    @id @default(uuid())
+  indicatorCode    String    // E1, E2, Ec1
+  targetValue      Float     // Positive benchmark target
+  unit             String    // L/kg, kWh/kg, ratio
+  stage            String    // FARMER, PROCESSOR, etc.
+  processType      String    // FULL_WASHED, NATURAL, etc.
+  region           String?
+  year             Int
+  referenceSource  String    // GCP, SAFA, Pilot study reference
+  establishedBy    String
+  benchmarkVersion String    @default("v1.0-2026")
+  createdAt        DateTime  @default(now())
+
+  indicatorObservations IndicatorObservation[]
+
+  @@map("cdl_benchmark_registry")
+}
+
+model IndicatorObservation {
+  id              String                @id @default(uuid())
+  assessmentId    String
+  indicatorCode   String                // E1..E3, S1..S3, Ec1..Ec3, G1..G3
+  numerator       Float?
+  denominator     Float?
+  rawValue        Float?
+  unit            String
+  benchmarkId     String?
+  applicability   ApplicabilityType     @default(APPLICABLE)
+  evidenceIds     String?               // JSON array of evidence UUIDs
+  sourceType      DataQualitySourceType @default(MEASURED)
+  createdAt       DateTime              @default(now())
+
+  assessment      Assessment            @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+  benchmark       BenchmarkRegistry?    @relation(fields: [benchmarkId], references: [benchmarkId], onDelete: SetNull)
+
+  @@map("cdl_indicator_observations")
+}
+
+model SafeguardObservation {
+  id           String          @id @default(uuid())
+  assessmentId String
+  issueCode    String          // FORCED_LABOR, CHILD_LABOR, DEFORESTATION, BANNED_PESTICIDES, SEVERE_POLLUTION
+  status       SafeguardStatus @default(UNKNOWN)
+  verifierId   String?
+  notes        String?
+  verifiedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  assessment   Assessment      @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+  verifier     User?           @relation(fields: [verifierId], references: [id], onDelete: SetNull)
+
+  @@map("cdl_safeguard_observations")
+}
+
+model EvidenceRecord {
+  evidenceId         String    @id @default(uuid())
+  uri                String    // Document URI or physical ledger path
+  docType            String    // WEIGH_SLIP, METER_LOG, LAB_REPORT, AUDIT_CERT
+  sha256Hash         String?
+  verifierId         String?
+  verificationStatus String    @default("PENDING") // PENDING, VERIFIED, REJECTED
+  uploadedAt         DateTime  @default(now())
+
+  verifier           User?     @relation(fields: [verifierId], references: [id], onDelete: SetNull)
+  materialInputs     MaterialInput[]
+  byproductDestinations ByproductDestination[]
+  utilities          UtilitiesObservation[]
+
+  @@map("cdl_evidence_records")
+}
+
+model CalculationSnapshot {
+  snapshotId      String                   @id @default(uuid())
+  assessmentId    String
+  formulaVersion  String                   // CT-CCI-Lite-1.0 or CT-SDI-Lite-1.0
+  inputsSnapshot  String                   // Full JSON snapshot of raw inputs and benchmarks
+  cciScore        Float?                   // Null if DRAFT
+  cciBreakdown    String?                  // JSON: { cmi, bvc, wc, re, weights }
+  sdiScore        Float?                   // Null if DRAFT or incomplete
+  sdiDimensions   String?                  // JSON: { E, S, Ec, G, indicators }
+  coveragePct     Float                    // Coverage percentage (0 - 100%)
+  safeguardStatus String                   // PASS, FAIL, UNKNOWN
+  status          SnapshotAssessmentStatus
+  engineVersion   String                   @default("Lite-1.0")
+  calculatedAt    DateTime                 @default(now())
+
+  assessment      Assessment               @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
+
+  @@map("cdl_calculation_snapshots")
+}

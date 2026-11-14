@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>CircularTrace Framework Render</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 3840px;
+      height: 2160px;
+      background: #FFFFFF;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+    svg {
+      width: 3840px;
+      height: 2160px;
+      display: block;
+    }
+    @page {
+      size: 16in 9in landscape;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCFDFD"/>
+      <stop offset="100%" stop-color="#F5F8F6"/>
+    </linearGradient>
+
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#143D2B"/>
+      <stop offset="60%" stop-color="#1B5E3C"/>
+      <stop offset="100%" stop-color="#2D7A50"/>
+    </linearGradient>
+
+    <linearGradient id="brownGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#542E16"/>
+      <stop offset="100%" stop-color="#7B4322"/>
+    </linearGradient>
+
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+
+    <linearGradient id="cardGradWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F8FAFC"/>
+    </linearGradient>
+
+    <linearGradient id="cardGradGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F0FDF4"/>
+      <stop offset="100%" stop-color="#DCFCE7"/>
+    </linearGradient>
+
+    <linearGradient id="cardGradBrown" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDFBF7"/>
+      <stop offset="100%" stop-color="#F7EFE6"/>
+    </linearGradient>
+
+    <linearGradient id="cardGradBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EFF6FF"/>
+    </linearGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="shadowSm" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.06"/>
+    </filter>
+
+    <filter id="shadowMd" x="-5%" y="-5%" width="110%" height="118%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+
+    <filter id="shadowLg" x="-8%" y="-8%" width="116%" height="122%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+
+    <!-- Arrow Markers -->
+    <!-- Coffee Product Flow Marker (Brown) -->
+    <marker id="arrowProduct" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#78350F"/>
+    </marker>
+
+    <!-- Data Flow Marker (Blue) -->
+    <marker id="arrowData" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2563EB"/>
+    </marker>
+
+    <!-- Verification Flow Marker (Amber/Gold) -->
+    <marker id="arrowVerif" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D97706"/>
+    </marker>
+
+    <!-- Circular Material Loop Marker (Green) -->
+    <marker id="arrowCircular" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#15803D"/>
+    </marker>
+
+    <!-- Feedback Loop Marker (Dashed Grey/Teal) -->
+    <marker id="arrowFeedback" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#0D9488"/>
+    </marker>
+  </defs>
+
+  <style>
+    .font-sans { font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .font-serif { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; }
+    .text-title { font-size: 22px; font-weight: 800; fill: #FFFFFF; letter-spacing: -0.01em; }
+    .text-sub { font-size: 13px; font-weight: 500; fill: #D1FAE5; }
+    .text-badge { font-size: 11px; font-weight: 600; fill: #FEF3C7; }
+    .layer-title { font-size: 14px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+    .actor-name { font-size: 14px; font-weight: 800; fill: #1E293B; }
+    .actor-role { font-size: 11px; font-weight: 600; fill: #64748B; font-style: italic; }
+    .actor-desc { font-size: 10.5px; font-weight: 500; fill: #334155; line-height: 1.35; }
+    .cdl-title { font-size: 14px; font-weight: 800; fill: #1E3A8A; }
+    .cdl-desc { font-size: 11px; font-weight: 500; fill: #475569; }
+    .pill-text { font-size: 10.5px; font-weight: 700; }
+    .metric-title { font-size: 15px; font-weight: 800; }
+    .metric-sub { font-size: 11.5px; font-weight: 600; }
+    .metric-item { font-size: 10.5px; font-weight: 500; fill: #334155; }
+    .legend-text { font-size: 11.5px; font-weight: 600; fill: #1E293B; }
+    .note-text { font-size: 10px; font-weight: 500; fill: #64748B; }
+  </style>
+
+  <!-- Background Base -->
+  <rect x="0" y="0" width="1920" height="1080" fill="url(#bgGrad)"/>
+  <rect x="15" y="15" width="1890" height="1050" rx="16" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1.5" filter="url(#shadowMd)"/>
+
+  <!-- ====================================================================== -->
+  <!-- 1. HEADER BANNER                                                      -->
+  <!-- ====================================================================== -->
+  <g id="headerBanner" transform="translate(30, 30)">
+    <rect x="0" y="0" width="1860" height="66" rx="12" fill="url(#headerGrad)" filter="url(#shadowSm)"/>
+    
+    <!-- Header Icon -->
+    <g transform="translate(20, 13)">
+      <circle cx="20" cy="20" r="19" fill="#FFFFFF" fill-opacity="0.15"/>
+      <path d="M 20 8 C 13.4 8 8 13.4 8 20 C 8 26.6 13.4 32 20 32 C 24.8 32 28.9 29.2 30.8 25.1 C 29.2 25.4 27.5 25.1 26.1 24.2 C 22.8 22.1 21.9 17.6 24 14.3 C 24.8 13 26 12.1 27.4 11.6 C 25.3 9.4 22.8 8 20 8 Z" fill="#34D399"/>
+      <circle cx="20" cy="20" r="4" fill="#FCD34D"/>
+    </g>
+
+    <!-- Header Text -->
+    <text class="font-sans text-title" x="72" y="29">Framework CircularTrace: Integrasi Ketertelusuran, Sirkularitas, dan Keberlanjutan Rantai Pasok Kopi</text>
+    <text class="font-sans text-sub" x="72" y="50">Integrasi Ketertelusuran Hulu-Hilir (Farm-to-Cup), Coffee Circularity Index (CT-CCI-Lite-1.0), Coffee Sustainable Development Index (CT-SDI-Lite-1.0) &amp; Transparansi Konsumen</text>
+
+    <!-- Institutional Consortium Badges -->
+    <g transform="translate(1420, 14)">
+      <rect x="0" y="0" width="420" height="38" rx="8" fill="#064E3B" fill-opacity="0.6" stroke="#059669" stroke-width="1"/>
+      <text class="font-sans text-badge" x="15" y="16" fill="#FDE68A">KONSORSIUM RISET NASIONAL RIKUB</text>
+      <text class="font-sans" x="15" y="30" font-size="10" font-weight="500" fill="#E2E8F0">Unand • Unej • UB • BRIN • Politani Payakumbuh • Solok Radjo / Alko • PT SAS</text>
+    </g>
+  </g>
+
+  <!-- ====================================================================== -->
+  <!-- 2. SECTION 1: RANTAI PASOK KOPI (HULU KE HILIR)                       -->
+  <!-- ====================================================================== -->
+  <g id="supplyChainSection" transform="translate(30, 110)">
+    <!-- Section Container -->
+    <rect x="0" y="0" width="1860" height="135" rx="12" fill="url(#cardGradBrown)" stroke="#EADBC8" stroke-width="1.2" filter="url(#shadowSm)"/>
+    
+    <!-- Section Header Tag -->
+    <path d="M 0 12 C 0 5.4 5.4 0 12 0 L 260 0 L 240 26 L 0 26 Z" fill="#78350F"/>
+    <text class="font-sans layer-title" x="18" y="18" fill="#FEF3C7">1. Aliran Produk Kopi (Hulu ke Hilir)</text>
+
+    <!-- Flow Description Indicator on Right -->
+    <text class="font-sans" x="1840" y="18" text-anchor="end" font-size="11" font-weight="700" fill="#78350F">─── Aliran Produk Fisik Kopi (Physical Coffee Flow) ───▶</text>
+
+    <!-- 6 Actors -->
+    <!-- Actor 1: Petani -->
+    <g transform="translate(18, 34)">
+      <rect x="0" y="0" width="285" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#15803D"/>
+      <circle cx="26" cy="22" r="14" fill="#DCFCE7"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">🌾</text>
+      <text class="font-sans actor-name" x="48" y="20">Petani</text>
+      <text class="font-sans actor-role" x="48" y="32">(Coffee Farmer / Smallholder)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Identitas kebun (FARM-ID) &amp; varietas (Typica, Ateng)</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Geolokasi poligon lahan &amp; kepatuhan EUDR</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Panen ceri merah (&gt;95%), sortasi &amp; uji Brix (22°+)</text>
+    </g>
+
+    <!-- Product Flow Arrow 1 -> 2 -->
+    <path d="M 307 79 L 327 79" stroke="#78350F" stroke-width="2.5" fill="none" marker-end="url(#arrowProduct)"/>
+    <text class="font-sans" x="317" y="72" text-anchor="middle" font-size="8.5" font-weight="700" fill="#78350F">Ceri</text>
+
+    <!-- Actor 2: Pengolah / Pascapanen -->
+    <g transform="translate(331, 34)">
+      <rect x="0" y="0" width="285" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#B45309"/>
+      <circle cx="26" cy="22" r="14" fill="#FEF3C7"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">⚙️</text>
+      <text class="font-sans actor-name" x="48" y="20">Pengolah / Pascapanen</text>
+      <text class="font-sans actor-role" x="48" y="32">(Wet &amp; Dry Mill Processing Facility)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Metode: Washed, Natural, Honey, Anaerobic</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Batching (PROC-ID), neraca rendemen &amp; kadar air 12%</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Catatan air, energi &amp; limbah (pulp, parchment, lendir)</text>
+    </g>
+
+    <!-- Product Flow Arrow 2 -> 3 -->
+    <path d="M 620 79 L 640 79" stroke="#78350F" stroke-width="2.5" fill="none" marker-end="url(#arrowProduct)"/>
+    <text class="font-sans" x="630" y="72" text-anchor="middle" font-size="8.5" font-weight="700" fill="#78350F">Gabah/GB</text>
+
+    <!-- Actor 3: Gudang & Exporter -->
+    <g transform="translate(644, 34)">
+      <rect x="0" y="0" width="285" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#0284C7"/>
+      <circle cx="26" cy="22" r="14" fill="#E0F2FE"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">📦</text>
+      <text class="font-sans actor-name" x="48" y="20">Gudang &amp; Exporter</text>
+      <text class="font-sans actor-role" x="48" y="32">(Warehouse QA &amp; Export Logistics)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Penerimaan lot green bean (GB-ID) &amp; stok</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Penyimpanan hermetik (GrainPro), suhu &amp; RH</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Inspeksi mutu (Aw &lt;0.65, defect SCA) &amp; BAST ekspor</text>
+    </g>
+
+    <!-- Product Flow Arrow 3 -> 4 -->
+    <path d="M 933 79 L 953 79" stroke="#78350F" stroke-width="2.5" fill="none" marker-end="url(#arrowProduct)"/>
+    <text class="font-sans" x="943" y="72" text-anchor="middle" font-size="8.5" font-weight="700" fill="#78350F">Green Bean</text>
+
+    <!-- Actor 4: Penyangrai / Roaster -->
+    <g transform="translate(957, 34)">
+      <rect x="0" y="0" width="285" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#78350F"/>
+      <circle cx="26" cy="22" r="14" fill="#FCE7F3"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">🔥</text>
+      <text class="font-sans actor-name" x="48" y="20">Penyangrai / Roaster</text>
+      <text class="font-sans actor-role" x="48" y="32">(Artisan &amp; Commercial Roastery)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Sumber lot green bean &amp; batch sangrai (WO-ID)</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Profil sangrai: Agtron, DTR %, curve roaster</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Cupping sensori SCA &amp; kemasan hermetik berkatup</text>
+    </g>
+
+    <!-- Product Flow Arrow 4 -> 5 -->
+    <path d="M 1246 79 L 1266 79" stroke="#78350F" stroke-width="2.5" fill="none" marker-end="url(#arrowProduct)"/>
+    <text class="font-sans" x="1256" y="72" text-anchor="middle" font-size="8.5" font-weight="700" fill="#78350F">Roasted</text>
+
+    <!-- Actor 5: Kafe & Barista -->
+    <g transform="translate(1270, 34)">
+      <rect x="0" y="0" width="270" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#4F46E5"/>
+      <circle cx="26" cy="22" r="14" fill="#EEF2FF"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">☕</text>
+      <text class="font-sans actor-name" x="48" y="20">Kafe &amp; Barista</text>
+      <text class="font-sans actor-role" x="48" y="32">(Specialty Coffee Shop &amp; Brew Bar)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Sumber roasted bean &amp; inventori kemasan</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Kalibrasi grinder, rasio ekstraksi &amp; seduh</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Penyajian kopi, display stiker QR meja &amp; cangkir</text>
+    </g>
+
+    <!-- Product Flow Arrow 5 -> 6 -->
+    <path d="M 1544 79 L 1564 79" stroke="#78350F" stroke-width="2.5" fill="none" marker-end="url(#arrowProduct)"/>
+    <text class="font-sans" x="1554" y="72" text-anchor="middle" font-size="8.5" font-weight="700" fill="#78350F">Seduhan</text>
+
+    <!-- Actor 6: Konsumen -->
+    <g transform="translate(1568, 34)">
+      <rect x="0" y="0" width="274" height="90" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+      <rect x="0" y="0" width="5" height="90" rx="2" fill="#D97706"/>
+      <circle cx="26" cy="22" r="14" fill="#FEF3C7"/>
+      <text x="26" y="27" text-anchor="middle" font-size="14">📱</text>
+      <text class="font-sans actor-name" x="48" y="20">Konsumen Akhir</text>
+      <text class="font-sans actor-role" x="48" y="32">(Informed End Consumer / Customer)</text>
+      <text class="font-sans actor-desc" x="12" y="50">• Pemindaian QR label pada kemasan/meja</text>
+      <text class="font-sans actor-desc" x="12" y="65">• Akses Paspor Digital Kopi &amp; portal web</text>
+      <text class="font-sans actor-desc" x="12" y="80">• Menikmati transparansi cerita &amp; mutu kopi</text>
+    </g>
+  </g>
+
+  <!-- ====================================================================== -->
+  <!-- 3. VERIFICATION & AUDIT LAYER (LINTAS TAHAP)                           -->
+  <!-- ====================================================================== -->
+  <!-- Connecting verification points to the actors -->
+  <g id="verificationLayer" transform="translate(30, 252)">
+    <rect x="0" y="0" width="1860" height="66" rx="10" fill="#FFFBEB" stroke="#FDE68A" stroke-width="1.2" filter="url(#shadowSm)"/>
+    
+    <!-- Badge Auditor -->
+    <g transform="translate(16, 12)">
+      <rect x="0" y="0" width="220" height="42" rx="6" fill="#D97706"/>
+      <text class="font-sans" x="12" y="18" font-size="11.5" font-weight="800" fill="#FFFFFF">🛡️ VERIFIKATOR / AUDITOR</text>
+      <text class="font-sans" x="12" y="32" font-size="9.5" font-weight="600" fill="#FEF3C7">Verifikasi Independen Lintas Tahap</text>
+    </g>
+
+    <!-- 5 Verification Nodes along the Supply Chain -->
+    <!-- Node 1: Farm Check -->
+    <g transform="translate(250, 11)">
+      <rect x="0" y="0" width="265" height="44" rx="6" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1"/>
+      <text class="font-sans" x="10" y="17" font-size="10.5" font-weight="700" fill="#92400E">① Verifikasi Lahan &amp; Panen</text>
+      <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#475569">Poligon EUDR bebas deforestasi &amp; Brix ceri</text>
+    </g>
+
+    <!-- Node 2: Processing Check -->
+    <g transform="translate(535, 11)">
+      <rect x="0" y="0" width="280" height="44" rx="6" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1"/>
+      <text class="font-sans" x="10" y="17" font-size="10.5" font-weight="700" fill="#92400E">② Verifikasi Bioproses &amp; Sirkular</text>
+      <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#475569">SOP fermentasi, meter air/energi &amp; neraca limbah</text>
+    </g>
+
+    <!-- Node 3: Warehouse Check -->
+    <g transform="translate(835, 11)">
+      <rect x="0" y="0" width="260" height="44" rx="6" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1"/>
+      <text class="font-sans" x="10" y="17" font-size="10.5" font-weight="700" fill="#92400E">③ Inspeksi Gudang &amp; Mutu</text>
+      <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#475569">Kadar air (11-12%), Aw &lt;0.65 &amp; GrainPro hermetik</text>
+    </g>
+
+    <!-- Node 4: Roastery Check -->
+    <g transform="translate(1115, 11)">
+      <rect x="0" y="0" width="260" height="44" rx="6" fill="#FFFFFF" stroke="#F59E0B" stroke-width="1"/>
+      <text class="font-sans" x="10" y="17" font-size="10.5" font-weight="700" fill="#92400E">④ Mutu Sangrai &amp; Sensori</text>
+      <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#475569">Cupping score SCA, Agtron &amp; kurva sangrai</text>
+    </g>
+
+    <!-- Node 5: Safeguards & Digital Stamping Output -->
+    <g transform="translate(1395, 11)">
+      <rect x="0" y="0" width="445" height="44" rx="6" fill="#FEF3C7" stroke="#D97706" stroke-width="1.2"/>
+      <text class="font-sans" x="12" y="17" font-size="10.5" font-weight="800" fill="#78350F">5 PENGAMAN NON-KOMPENSASI &amp; STEMPEL DIGITAL</text>
+      <text class="font-sans" x="12" y="32" font-size="9.5" font-weight="600" fill="#15803D">PASS / FAIL / UNKNOWN • Hash Bukti SHA-256 • Status: PUBLISHED / BLOCKED</text>
+    </g>
+  </g>
+
+  <!-- Verification Links Upward to Actors -->
+  <path d="M 382 252 L 382 235" stroke="#D97706" stroke-width="1.8" stroke-dasharray="3,3"/>
+  <path d="M 675 252 L 675 235" stroke="#D97706" stroke-width="1.8" stroke-dasharray="3,3"/>
+  <path d="M 965 252 L 965 235" stroke="#D97706" stroke-width="1.8" stroke-dasharray="3,3"/>
+  <path d="M 1245 252 L 1245 235" stroke="#D97706" stroke-width="1.8" stroke-dasharray="3,3"/>
+
+  <!-- ====================================================================== -->
+  <!-- 4. SECTION 2: COMMON DATA LAYER (CDL) & LOT LINEAGE                   -->
+  <!-- ====================================================================== -->
+  <g id="cdlSection" transform="translate(30, 326)">
+    <rect x="0" y="0" width="1860" height="152" rx="12" fill="url(#cardGradBlue)" stroke="#BFDBFE" stroke-width="1.2" filter="url(#shadowSm)"/>
+    
+    <!-- Section Header Tag -->
+    <path d="M 0 12 C 0 5.4 5.4 0 12 0 L 390 0 L 370 26 L 0 26 Z" fill="#1E40AF"/>
+    <text class="font-sans layer-title" x="18" y="18" fill="#DBEAFE">2. Integrasi Data CircularTrace (Common Data Layer)</text>
+
+    <text class="font-sans" x="1840" y="18" text-anchor="end" font-size="11" font-weight="700" fill="#1E40AF">─── Data Lot/Batch dan Transaksi yang Terhubung (Immutable Connected CDL) ───</text>
+
+    <!-- Sub-row A: Connected Lot Lineage Chain -->
+    <g transform="translate(18, 32)">
+      <rect x="0" y="0" width="1824" height="42" rx="8" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1"/>
+      <text class="font-sans" x="14" y="25" font-size="11" font-weight="800" fill="#1E3A8A">SILSILAH IDENTITAS LOT:</text>
+      
+      <!-- Lot Nodes -->
+      <g transform="translate(160, 8)">
+        <rect x="0" y="0" width="180" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="90" y="17" text-anchor="middle" fill="#1D4ED8">Kebun (FARM-PGL-01)</text>
+      </g>
+      <path d="M 345 21 L 370 21" stroke="#2563EB" stroke-width="2" marker-end="url(#arrowData)"/>
+
+      <g transform="translate(376, 8)">
+        <rect x="0" y="0" width="200" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="100" y="17" text-anchor="middle" fill="#1D4ED8">Lot Panen (LOT-PTN-001)</text>
+      </g>
+      <path d="M 581 21 L 606 21" stroke="#2563EB" stroke-width="2" marker-end="url(#arrowData)"/>
+
+      <g transform="translate(612, 8)">
+        <rect x="0" y="0" width="240" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="120" y="17" text-anchor="middle" fill="#1D4ED8">Batch Pengolahan (PROC-ARB-001)</text>
+      </g>
+      <path d="M 857 21 L 882 21" stroke="#2563EB" stroke-width="2" marker-end="url(#arrowData)"/>
+
+      <g transform="translate(888, 8)">
+        <rect x="0" y="0" width="230" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="115" y="17" text-anchor="middle" fill="#1D4ED8">Lot Gudang (GB-MLB-001)</text>
+      </g>
+      <path d="M 1123 21 L 1148 21" stroke="#2563EB" stroke-width="2" marker-end="url(#arrowData)"/>
+
+      <g transform="translate(1154, 8)">
+        <rect x="0" y="0" width="230" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="115" y="17" text-anchor="middle" fill="#1D4ED8">Batch Sangrai (WO-2026-001)</text>
+      </g>
+      <path d="M 1389 21 L 1414 21" stroke="#2563EB" stroke-width="2" marker-end="url(#arrowData)"/>
+
+      <g transform="translate(1420, 8)">
+        <rect x="0" y="0" width="240" height="26" rx="5" fill="#EFF6FF" stroke="#3B82F6" stroke-width="1"/>
+        <text class="font-sans pill-text" x="120" y="17" text-anchor="middle" fill="#1D4ED8">Produk/Kopi di Kafe (CAFE-CS-001)</text>
+      </g>
+
+      <g transform="translate(1670, 8)">
+        <rect x="0" y="0" width="144" height="26" rx="5" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/>
+        <text class="font-sans pill-text" x="72" y="17" text-anchor="middle" fill="#B45309">🔗 QR Verified</text>
+      </g>
+    </g>
+
+    <!-- Sub-row B: 5 Canonical Data Clusters in CDL -->
+    <g transform="translate(18, 80)">
+      <!-- Cluster 1: Asal & Identitas -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="350" height="62" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="62" rx="1" fill="#3B82F6"/>
+        <text class="font-sans" x="12" y="16" font-size="11.5" font-weight="700" fill="#1E293B">📍 1. Asal &amp; Identitas (Origin &amp; ID)</text>
+        <text class="font-sans" x="12" y="32" font-size="10" font-weight="500" fill="#475569">• ID Fasilitas, actor_id, period_start/end</text>
+        <text class="font-sans" x="12" y="47" font-size="10" font-weight="500" fill="#475569">• Koordinat geolokasi, elevasi, varietas kopi</text>
+      </g>
+
+      <!-- Cluster 2: Produksi & Transaksi -->
+      <g transform="translate(365, 0)">
+        <rect x="0" y="0" width="350" height="62" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="62" rx="1" fill="#10B981"/>
+        <text class="font-sans" x="12" y="16" font-size="11.5" font-weight="700" fill="#1E293B">📊 2. Produksi &amp; Transaksi (Flows)</text>
+        <text class="font-sans" x="12" y="32" font-size="10" font-weight="500" fill="#475569">• Bobot ceri, gabah, green bean, roasted (kg)</text>
+        <text class="font-sans" x="12" y="47" font-size="10" font-weight="500" fill="#475569">• Rendemen proses, BAST, invoice &amp; buku besar</text>
+      </g>
+
+      <!-- Cluster 3: Parameter Mutu -->
+      <g transform="translate(730, 0)">
+        <rect x="0" y="0" width="355" height="62" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="62" rx="1" fill="#F59E0B"/>
+        <text class="font-sans" x="12" y="16" font-size="11.5" font-weight="700" fill="#1E293B">⭐ 3. Parameter Mutu (Quality Specs)</text>
+        <text class="font-sans" x="12" y="32" font-size="10" font-weight="500" fill="#475569">• Brix ceri, kadar air (11-12%), Water activity Aw</text>
+        <text class="font-sans" x="12" y="47" font-size="10" font-weight="500" fill="#475569">• Defect count SCA, cupping score, akrilamida</text>
+      </g>
+
+      <!-- Cluster 4: Sumber Daya Utilitas -->
+      <g transform="translate(1100, 0)">
+        <rect x="0" y="0" width="355" height="62" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="62" rx="1" fill="#6366F1"/>
+        <text class="font-sans" x="12" y="16" font-size="11.5" font-weight="700" fill="#1E293B">⚡ 4. Sumber Daya (Utilities &amp; Energy)</text>
+        <text class="font-sans" x="12" y="32" font-size="10" font-weight="500" fill="#475569">• Meter air baru vs air daur ulang (Liter)</text>
+        <text class="font-sans" x="12" y="47" font-size="10" font-weight="500" fill="#475569">• Total energi &amp; energi terbarukan surya (kWh eq)</text>
+      </g>
+
+      <!-- Cluster 5: Limbah & Pemanfaatan -->
+      <g transform="translate(1470, 0)">
+        <rect x="0" y="0" width="354" height="62" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="62" rx="1" fill="#059669"/>
+        <text class="font-sans" x="12" y="16" font-size="11.5" font-weight="700" fill="#1E293B">♻️ 5. Limbah &amp; Hasil Samping (BVC)</text>
+        <text class="font-sans" x="12" y="32" font-size="10" font-weight="500" fill="#475569">• Pulp, kulit tanduk, lendir, silverskin (kg)</text>
+        <text class="font-sans" x="12" y="47" font-size="10" font-weight="500" fill="#475569">• Faktor nilai (VF: 1.0, 0.5, 0.0) &amp; bukti aktual</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Connectors from CDL to 3 Analysis Pillars -->
+  <path d="M 330 478 L 330 498" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrowData)"/>
+  <path d="M 960 478 L 960 498" stroke="#16A34A" stroke-width="2.5" marker-end="url(#arrowCircular)"/>
+  <path d="M 1590 478 L 1590 498" stroke="#0D9488" stroke-width="2.5" marker-end="url(#arrowData)"/>
+
+  <!-- ====================================================================== -->
+  <!-- 5. SECTION 3: TIGA KOMPONEN ANALISIS SEJAJAR                           -->
+  <!-- ====================================================================== -->
+  <g id="analysisSection" transform="translate(30, 498)">
+    
+    <!-- PILLAR 1: TRACEABILITY -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="595" height="232" rx="12" fill="url(#cardGradBlue)" stroke="#93C5FD" stroke-width="1.5" filter="url(#shadowMd)"/>
+      <rect x="0" y="0" width="595" height="36" rx="12" fill="#1E3A8A"/>
+      <rect x="0" y="24" width="595" height="12" fill="#1E3A8A"/>
+      <text class="font-sans metric-title" x="18" y="24" fill="#FFFFFF">🔍 KETERTELUSURAN (TRACEABILITY)</text>
+      <text class="font-sans" x="575" y="24" text-anchor="end" font-size="11" font-weight="700" fill="#93C5FD">FARM-TO-CUP LINEAGE</text>
+
+      <g transform="translate(18, 48)">
+        <rect x="0" y="0" width="559" height="38" rx="6" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <text class="font-sans" x="12" y="16" font-size="11" font-weight="700" fill="#1E293B">Silsilah Hubungan Antar-Lot (Lot Lineage Integrity)</text>
+        <text class="font-sans" x="12" y="30" font-size="10" font-weight="500" fill="#64748B">Rekonstruksi rantai transfer kepemilikan dan lokasi pemrosesan tanpa putus.</text>
+      </g>
+
+      <g transform="translate(18, 92)">
+        <rect x="0" y="0" width="559" height="38" rx="6" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <text class="font-sans" x="12" y="16" font-size="11" font-weight="700" fill="#1E293B">Riwayat Proses &amp; Log Lembar Kerja (Process Logs)</text>
+        <text class="font-sans" x="12" y="30" font-size="10" font-weight="500" fill="#64748B">Pencatatan intake ceri, fermentasi anaerobik, kurva sangrai, dan tanggal seduh.</text>
+      </g>
+
+      <g transform="translate(18, 136)">
+        <rect x="0" y="0" width="559" height="38" rx="6" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1"/>
+        <text class="font-sans" x="12" y="16" font-size="11" font-weight="700" fill="#1E293B">Kepatuhan Regulasi &amp; EUDR (Deforestation-Free)</text>
+        <text class="font-sans" x="12" y="30" font-size="10" font-weight="500" fill="#64748B">Verifikasi koordinat poligon batas lahan kebun kopi bebas deforestasi (EUDR).</text>
+      </g>
+
+      <g transform="translate(18, 180)">
+        <rect x="0" y="0" width="559" height="40" rx="6" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1"/>
+        <text class="font-sans" x="12" y="16" font-size="11" font-weight="800" fill="#92400E">STATUS AUDIT &amp; BUKTI DIGITAL (IMMUTABLE HASH)</text>
+        <text class="font-sans" x="12" y="31" font-size="9.5" font-weight="600" fill="#B45309">Dokumen Timbang, Meteran &amp; Lab terverifikasi berstempel kriptografi SHA-256</text>
+      </g>
+    </g>
+
+    <!-- PILLAR 2: COFFEE CIRCULARITY INDEX (CT-CCI-Lite-1.0) -->
+    <g transform="translate(632, 0)">
+      <rect x="0" y="0" width="595" height="232" rx="12" fill="url(#cardGradGreen)" stroke="#86EFAC" stroke-width="1.5" filter="url(#shadowMd)"/>
+      <rect x="0" y="0" width="595" height="36" rx="12" fill="#15803D"/>
+      <rect x="0" y="24" width="595" height="12" fill="#15803D"/>
+      <text class="font-sans metric-title" x="18" y="24" fill="#FFFFFF">♻️ INDEKS SIRKULARITAS (CT-CCI-Lite-1.0)</text>
+      <text class="font-sans" x="575" y="24" text-anchor="end" font-size="11" font-weight="700" fill="#BBF7D0">SKALA 0 – 100</text>
+
+      <!-- Formula Subtitle Banner -->
+      <g transform="translate(18, 44)">
+        <rect x="0" y="0" width="559" height="26" rx="5" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1"/>
+        <text class="font-sans" x="280" y="17" text-anchor="middle" font-size="11" font-weight="800" fill="#14532D">Rumus: CT-CCI = 100 × [0.20·CMI + 0.45·BVC + 0.20·WC + 0.15·RE]</text>
+      </g>
+
+      <!-- 4 CCI Components Grid -->
+      <!-- CMI -->
+      <g transform="translate(18, 76)">
+        <rect x="0" y="0" width="272" height="68" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="68" rx="1" fill="#16A34A"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#14532D">CMI (Circular Material Input) - Bobot 20%</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#475569">• Rasio input kemasan/pendukung sirkular</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#475569">• Syarat bukti daur ulang/rekoveri sah</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="600" fill="#059669">Bila nihil: NOT_APPLICABLE (bobot dinormalisasi)</text>
+      </g>
+
+      <!-- BVC -->
+      <g transform="translate(305, 76)">
+        <rect x="0" y="0" width="272" height="68" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="68" rx="1" fill="#15803D"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#14532D">BVC (Byproduct Valorization) - Bobot 45%</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#475569">• Valorisasi pulp, mucilage, parchment, husk</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#475569">• Faktor Nilai: Material 1.0 | Energi 0.5 | Buang 0.0</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="600" fill="#15803D">Wajib tanggal pemanfaatan aktual &amp; neraca massa</text>
+      </g>
+
+      <!-- WC -->
+      <g transform="translate(18, 150)">
+        <rect x="0" y="0" width="272" height="70" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="68" rx="1" fill="#0284C7"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#0369A1">WC (Water Circularity) - Bobot 20%</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#475569">• Rasio pemakaian ulang air proses:</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="700" fill="#0284C7">  WC = Air Daur Ulang / (Air Baru + Daur Ulang)</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="500" fill="#64748B">Diukur pada titik pemakaian (flowmeter)</text>
+      </g>
+
+      <!-- RE -->
+      <g transform="translate(305, 150)">
+        <rect x="0" y="0" width="272" height="70" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="4" height="68" rx="1" fill="#D97706"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#B45309">RE (Renewable Energy) - Bobot 15%</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#475569">• Rasio energi surya &amp; pulih / total energi</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#475569">• Konversi standar ke satuan kWh ekuivalen</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="600" fill="#B45309">Data hilang ➔ status DRAFT (tidak dianggap 0)</text>
+      </g>
+    </g>
+
+    <!-- PILLAR 3: COFFEE SUSTAINABLE DEVELOPMENT INDEX (CT-SDI-Lite-1.0) -->
+    <g transform="translate(1265, 0)">
+      <rect x="0" y="0" width="595" height="232" rx="12" fill="url(#cardGradWhite)" stroke="#CBD5E1" stroke-width="1.5" filter="url(#shadowMd)"/>
+      <rect x="0" y="0" width="595" height="36" rx="12" fill="#0F766E"/>
+      <rect x="0" y="24" width="595" height="12" fill="#0F766E"/>
+      <text class="font-sans metric-title" x="18" y="24" fill="#FFFFFF">🌱 KEBERLANJUTAN (CT-SDI-Lite-1.0)</text>
+      <text class="font-sans" x="575" y="24" text-anchor="end" font-size="11" font-weight="700" fill="#99F6E4">4 DIMENSI SAFA (0 – 100)</text>
+
+      <!-- Formula Subtitle Banner -->
+      <g transform="translate(18, 44)">
+        <rect x="0" y="0" width="559" height="26" rx="5" fill="#CCFBF1" stroke="#99F6E4" stroke-width="1"/>
+        <text class="font-sans" x="280" y="17" text-anchor="middle" font-size="11" font-weight="800" fill="#115E59">Rumus: CT-SDI = (E + S + Ec + G) / 4  •  12 Indikator Inti Terverifikasi</text>
+      </g>
+
+      <!-- 4 SDI Dimensions Grid -->
+      <!-- Dimension E -->
+      <g transform="translate(18, 76)">
+        <rect x="0" y="0" width="272" height="68" rx="6" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#15803D">Lingkungan (Environmental - E: 25%)</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#1E293B">• E1: Intensitas air baru (vs target benchmark)</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#1E293B">• E2: Intensitas energi (kWh/kg green bean)</text>
+        <text class="font-sans" x="10" y="60" font-size="10" font-weight="500" fill="#1E293B">• E3: Pencegahan pencemaran air &amp; udara</text>
+      </g>
+
+      <!-- Dimension S -->
+      <g transform="translate(305, 76)">
+        <rect x="0" y="0" width="272" height="68" rx="6" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#1D4ED8">Sosial (Social - S: 25%)</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#1E293B">• S1: Perlindungan hak pekerja &amp; keadilan</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#1E293B">• S2: Upah acuan layak &amp; pembayaran tepat</text>
+        <text class="font-sans" x="10" y="60" font-size="10" font-weight="500" fill="#1E293B">• S3: Keselamatan &amp; kesehatan kerja (K3)</text>
+      </g>
+
+      <!-- Dimension Ec -->
+      <g transform="translate(18, 150)">
+        <rect x="0" y="0" width="272" height="70" rx="6" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#B45309">Ekonomi (Economic - Ec: 25%)</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#1E293B">• Ec1: Margin laba usaha kopi berkelanjutan</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#1E293B">• Ec2: Pembayaran tepat waktu ke petani/mitra</text>
+        <text class="font-sans" x="10" y="60" font-size="10" font-weight="500" fill="#1E293B">• Ec3: Tingkat penerimaan mutu produk (spec)</text>
+      </g>
+
+      <!-- Dimension G -->
+      <g transform="translate(305, 150)">
+        <rect x="0" y="0" width="272" height="70" rx="6" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#334155">Tata Kelola (Governance - G: 25%)</text>
+        <text class="font-sans" x="10" y="32" font-size="10" font-weight="500" fill="#1E293B">• G1: Keterlacakan transaksi lot &amp; BAST</text>
+        <text class="font-sans" x="10" y="46" font-size="10" font-weight="500" fill="#1E293B">• G2: Kelengkapan catatan usaha 4 pilar</text>
+        <text class="font-sans" x="10" y="60" font-size="10" font-weight="500" fill="#1E293B">• G3: Tindak lanjut perbaikan temuan audit</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- Connectors from 3 Pillars to Outputs & Circular Loops -->
+  <path d="M 330 730 L 330 758" stroke="#1E3A8A" stroke-width="2.5" marker-end="url(#arrowData)"/>
+  <path d="M 960 730 L 960 758" stroke="#15803D" stroke-width="2.5" marker-end="url(#arrowCircular)"/>
+  <path d="M 1590 730 L 1590 758" stroke="#0F766E" stroke-width="2.5" marker-end="url(#arrowData)"/>
+
+  <!-- ====================================================================== -->
+  <!-- 6. BOTTOM LAYER: CIRCULAR VALORIZATION & CONSUMER PORTAL OUTPUT        -->
+  <!-- ====================================================================== -->
+  <g id="bottomLayer" transform="translate(30, 760)">
+
+    <!-- LEFT BOX: SIKLUS SIRKULAR BIOMASSA & VALORISASI -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="930" height="210" rx="12" fill="url(#cardGradGreen)" stroke="#86EFAC" stroke-width="1.3" filter="url(#shadowSm)"/>
+      <path d="M 0 12 C 0 5.4 5.4 0 12 0 L 320 0 L 300 24 L 0 24 Z" fill="#15803D"/>
+      <text class="font-sans" x="16" y="16" font-size="11.5" font-weight="800" fill="#DCFCE7">SIKLUS SIRKULAR MATERIAL &amp; VALORISASI LIMBAH</text>
+
+      <!-- Upstream Origin Flow -->
+      <g transform="translate(18, 36)">
+        <rect x="0" y="0" width="220" height="66" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#15803D">Limbah &amp; Hasil Samping</text>
+        <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#475569">• Kulit Ceri (Pulp / Cascara)</text>
+        <text class="font-sans" x="10" y="46" font-size="9.5" font-weight="500" fill="#475569">• Lendir (Mucilage) &amp; Kulit Tanduk</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="500" fill="#475569">• Kulit Ari Sangrai (Silverskin / Chaff)</text>
+      </g>
+
+      <path d="M 242 69 L 268 69" stroke="#15803D" stroke-width="2.5" marker-end="url(#arrowCircular)"/>
+
+      <!-- Valorization Products (Implemented in RIKUB) -->
+      <g transform="translate(274, 36)">
+        <rect x="0" y="0" width="370" height="66" rx="6" fill="#FFFFFF" stroke="#16A34A" stroke-width="1.2"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#14532D">Produk Inovasi Valorisasi Sirkular (VF = 1.00 &amp; 0.50)</text>
+        <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#1E293B">• Pangan: <tspan font-weight="700">Cascara Kawa Tea</tspan> &amp; minuman fungsional <tspan font-weight="700">Cascagenic</tspan></text>
+        <text class="font-sans" x="10" y="46" font-size="9.5" font-weight="500" fill="#1E293B">• Personal Care: Pasta gigi <tspan font-weight="700">KatekinPlus</tspan> &amp; lotion kulit <tspan font-weight="700">CascaraSkin</tspan></text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="500" fill="#1E293B">• Energi &amp; Biochar: Briket biomassa kulit kopi &amp; arang aktif</text>
+      </g>
+
+      <path d="M 648 69 L 674 69" stroke="#15803D" stroke-width="2.5" marker-end="url(#arrowCircular)"/>
+
+      <!-- Compost / Nutrient Return to Farm -->
+      <g transform="translate(680, 36)">
+        <rect x="0" y="0" width="232" height="66" rx="6" fill="#DCFCE7" stroke="#15803D" stroke-width="1.2"/>
+        <text class="font-sans" x="10" y="16" font-size="11" font-weight="800" fill="#14532D">Pupuk Kompos Organik</text>
+        <text class="font-sans" x="10" y="32" font-size="9.5" font-weight="500" fill="#166534">• Kompos aerobik ceri &amp; lendir</text>
+        <text class="font-sans" x="10" y="46" font-size="9.5" font-weight="500" fill="#166534">• Pembenah struktur tanah kebun</text>
+        <text class="font-sans" x="10" y="60" font-size="9.5" font-weight="800" fill="#15803D">♻️ DIKEMBALIKAN KE KEBUN</text>
+      </g>
+
+      <!-- CLOSED NUTRIENT LOOP ARROW: FROM COMPOST BACK TO FARM -->
+      <g id="closedNutrientLoop">
+        <path d="M 796 102 L 796 142 L 50 142 L 50 48" stroke="#15803D" stroke-width="2.8" stroke-dasharray="6,4" fill="none" marker-end="url(#arrowCircular)"/>
+        <rect x="220" y="130" width="380" height="24" rx="4" fill="#15803D"/>
+        <text class="font-sans" x="410" y="146" text-anchor="middle" font-size="10.5" font-weight="800" fill="#FFFFFF">↺ SIKLUS HARA TERTUTUP: Kompos Organik Dikembalikan ke Kebun Petani</text>
+      </g>
+
+      <!-- Continuous Improvement Feedback Loop -->
+      <g id="feedbackLoop" transform="translate(18, 166)">
+        <rect x="0" y="0" width="894" height="34" rx="6" fill="#F0FDFA" stroke="#0D9488" stroke-width="1.2" stroke-dasharray="4,4"/>
+        <text class="font-sans" x="14" y="21" font-size="10.5" font-weight="800" fill="#0F766E">🔄 UMPAN BALIK PERBAIKAN BERKELANJUTAN (G3 Remedial Action Loop):</text>
+        <text class="font-sans" x="440" y="21" font-size="10" font-weight="500" fill="#134E4A">Evaluasi skor CCI, CSDI, dan audit pengaman ➔ Rekomendasi perbaikan praktik budidaya &amp; efisiensi [Konsep Framework]</text>
+      </g>
+    </g>
+
+    <!-- RIGHT BOX: KELUARAN IDENTITAS DIGITAL & AKSES KONSUMEN -->
+    <g transform="translate(950, 0)">
+      <rect x="0" y="0" width="910" height="210" rx="12" fill="url(#cardGradBlue)" stroke="#93C5FD" stroke-width="1.3" filter="url(#shadowSm)"/>
+      <path d="M 0 12 C 0 5.4 5.4 0 12 0 L 350 0 L 330 24 L 0 24 Z" fill="#1E40AF"/>
+      <text class="font-sans" x="16" y="16" font-size="11.5" font-weight="800" fill="#DBEAFE">IDENTITAS DIGITAL PRODUK &amp; PORTAL KONSUMEN</text>
+
+      <!-- QR Code & Digital Product Passport Card -->
+      <g transform="translate(18, 36)">
+        <rect x="0" y="0" width="240" height="160" rx="8" fill="#FFFFFF" stroke="#3B82F6" stroke-width="1.5" filter="url(#shadowSm)"/>
+        
+        <!-- Mini QR Mockup -->
+        <rect x="15" y="14" width="60" height="60" rx="4" fill="#1E293B"/>
+        <rect x="21" y="20" width="18" height="18" fill="#FFFFFF"/>
+        <rect x="25" y="24" width="10" height="10" fill="#1E293B"/>
+        <rect x="49" y="20" width="18" height="18" fill="#FFFFFF"/>
+        <rect x="53" y="24" width="10" height="10" fill="#1E293B"/>
+        <rect x="21" y="48" width="18" height="18" fill="#FFFFFF"/>
+        <rect x="25" y="52" width="10" height="10" fill="#1E293B"/>
+        <circle cx="45" cy="44" r="3" fill="#3B82F6"/>
+
+        <text class="font-sans" x="84" y="28" font-size="12" font-weight="800" fill="#1E3A8A">Label QR Produk</text>
+        <text class="font-sans" x="84" y="42" font-size="9" font-weight="600" fill="#64748B">Paspor Digital Kopi</text>
+        <rect x="84" y="49" width="142" height="20" rx="4" fill="#DBEAFE"/>
+        <text class="font-sans" x="90" y="63" font-size="8.5" font-weight="700" fill="#1D4ED8">scan/PROC-ARB-001</text>
+
+        <line x1="15" y1="84" x2="225" y2="84" stroke="#E2E8F0" stroke-width="1"/>
+
+        <text class="font-sans" x="15" y="100" font-size="9.5" font-weight="700" fill="#1E293B">Stiker Kemasan Karung &amp; Retail</text>
+        <text class="font-sans" x="15" y="115" font-size="9" font-weight="500" fill="#64748B">• Stiker Barcode Karung Ekspor (60kg)</text>
+        <text class="font-sans" x="15" y="129" font-size="9" font-weight="500" fill="#64748B">• Kemasan Valve Bag Roastery (250g)</text>
+        <text class="font-sans" x="15" y="143" font-size="9" font-weight="500" fill="#64748B">• Stiker Meja &amp; Gelas Kafe (Table QR)</text>
+      </g>
+
+      <path d="M 262 116 L 286 116" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrowData)"/>
+
+      <!-- Consumer Portal Features Breakdown -->
+      <g transform="translate(292, 36)">
+        <rect x="0" y="0" width="600" height="160" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1"/>
+        <rect x="0" y="0" width="600" height="28" rx="8" fill="#1E3A8A"/>
+        <rect x="0" y="18" width="600" height="10" fill="#1E3A8A"/>
+        <text class="font-sans" x="14" y="19" font-size="11.5" font-weight="800" fill="#FFFFFF">PORTAL KONSUMEN &amp; ANTARMUKA TRANSPARANSI PUBLIK</text>
+
+        <!-- 5 Feature Cards inside Consumer Portal -->
+        <g transform="translate(12, 36)">
+          <!-- Item 1 -->
+          <rect x="0" y="0" width="184" height="52" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+          <text class="font-sans" x="8" y="15" font-size="10.5" font-weight="700" fill="#1E293B">📍 Asal &amp; Kisah Petani</text>
+          <text class="font-sans" x="8" y="29" font-size="9" font-weight="500" fill="#64748B">Peta GPS, ketinggian mdpl, varietas pohon &amp; profil kelompok tani</text>
+
+          <!-- Item 2 -->
+          <rect x="194" y="0" width="184" height="52" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+          <text class="font-sans" x="8" y="15" font-size="10.5" font-weight="700" fill="#1E293B">⏱️ Linimasa Perjalanan</text>
+          <text class="font-sans" x="8" y="29" font-size="9" font-weight="500" fill="#64748B">Kronologi panen, fermentasi, tanggal sangrai hingga seduhan barista</text>
+
+          <!-- Item 3 -->
+          <rect x="388" y="0" width="188" height="52" rx="5" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+          <text class="font-sans" x="8" y="15" font-size="10.5" font-weight="700" fill="#1E293B">☕ Profil Sensori &amp; Cupping</text>
+          <text class="font-sans" x="8" y="29" font-size="9" font-weight="500" fill="#64748B">Catatan rasa (tasting notes), skor SCA, dan mitigasi akrilamida</text>
+
+          <!-- Item 4 -->
+          <g transform="translate(0, 58)">
+            <rect x="0" y="0" width="280" height="54" rx="5" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1"/>
+            <text class="font-sans" x="8" y="16" font-size="10.5" font-weight="800" fill="#15803D">♻️ Skor Sirkularitas (CT-CCI)</text>
+            <text class="font-sans" x="8" y="31" font-size="9" font-weight="600" fill="#166534">Nilai 0–100: Valorisasi limbah ceri (BVC 45%), daur ulang air (WC 20%) &amp; energi surya (RE 15%)</text>
+          </g>
+
+          <!-- Item 5 -->
+          <g transform="translate(290, 58)">
+            <rect x="0" y="0" width="286" height="54" rx="5" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
+            <text class="font-sans" x="8" y="16" font-size="10.5" font-weight="800" fill="#B45309">🌱 Indeks Keberlanjutan &amp; Verifikasi</text>
+            <text class="font-sans" x="8" y="31" font-size="9" font-weight="600" fill="#92400E">Skor CT-SDI 4 Dimensi SAFA • Status Verifikasi EUDR Bebas Deforestasi &amp; 5 Pengaman Mutlak (PASS)</text>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- ====================================================================== -->
+  <!-- 7. FOOTER: COMPREHENSIVE LEGEND & SYSTEM BOUNDARY NOTES                -->
+  <!-- ====================================================================== -->
+  <g id="footerSection" transform="translate(30, 984)">
+    <rect x="0" y="0" width="1860" height="76" rx="10" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.2"/>
+
+    <!-- Legend Title -->
+    <text class="font-sans" x="20" y="24" font-size="12" font-weight="800" fill="#0F172A">LEGENDA DIAGRAM:</text>
+
+    <!-- Legend Item 1: Product Flow -->
+    <g transform="translate(150, 10)">
+      <line x1="0" y1="12" x2="35" y2="12" stroke="#78350F" stroke-width="3" marker-end="url(#arrowProduct)"/>
+      <text class="font-sans legend-text" x="45" y="16">Aliran Produk Kopi Fisik</text>
+      <text class="font-sans" x="45" y="28" font-size="9" font-weight="500" fill="#64748B">Ceri ➔ GB ➔ Roasted ➔ Cangkir</text>
+    </g>
+
+    <!-- Legend Item 2: Data Flow -->
+    <g transform="translate(340, 10)">
+      <line x1="0" y1="12" x2="35" y2="12" stroke="#2563EB" stroke-width="2.5" marker-end="url(#arrowData)"/>
+      <text class="font-sans legend-text" x="45" y="16">Aliran Data &amp; CDL Transaksi</text>
+      <text class="font-sans" x="45" y="28" font-size="9" font-weight="500" fill="#64748B">Pencatatan lot, bobot &amp; bukti fisik</text>
+    </g>
+
+    <!-- Legend Item 3: Verification Flow -->
+    <g transform="translate(560, 10)">
+      <line x1="0" y1="12" x2="35" y2="12" stroke="#D97706" stroke-width="2.2" stroke-dasharray="3,3" marker-end="url(#arrowVerif)"/>
+      <text class="font-sans legend-text" x="45" y="16">Verifikasi &amp; Audit Lapangan</text>
+      <text class="font-sans" x="45" y="28" font-size="9" font-weight="500" fill="#64748B">EUDR, K3, neraca massa &amp; lab</text>
+    </g>
+
+    <!-- Legend Item 4: Circular Loop -->
+    <g transform="translate(775, 10)">
+      <line x1="0" y1="12" x2="35" y2="12" stroke="#15803D" stroke-width="3" stroke-dasharray="6,3" marker-end="url(#arrowCircular)"/>
+      <text class="font-sans legend-text" x="45" y="16">Siklus Sirkular Material Biomassa</text>
+      <text class="font-sans" x="45" y="28" font-size="9" font-weight="500" fill="#64748B">Valorisasi cascara &amp; kompos ke kebun</text>
+    </g>
+
+    <!-- Legend Item 5: Feedback / Proposed -->
+    <g transform="translate(1015, 10)">
+      <line x1="0" y1="12" x2="35" y2="12" stroke="#0D9488" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrowFeedback)"/>
+      <text class="font-sans legend-text" x="45" y="16">Umpan Balik / Usulan Pengembangan</text>
+      <text class="font-sans" x="45" y="28" font-size="9" font-weight="500" fill="#64748B">Perbaikan praktik &amp; trigger otomatis</text>
+    </g>
+
+    <!-- Boundary Notes (Divider Line) -->
+    <line x1="1275" y1="8" x2="1275" y2="68" stroke="#CBD5E1" stroke-width="1"/>
+
+    <!-- Operational Scope Notes -->
+    <g transform="translate(1290, 10)">
+      <text class="font-sans" x="0" y="13" font-size="10" font-weight="700" fill="#1E293B">BATASAN SISTEM &amp; IMPLEMENTASI AKTUAL:</text>
+      <text class="font-sans note-text" x="0" y="27"><tspan font-weight="700" fill="#15803D">[Fitur Aktif Engine]:</tspan> Dual Index CT-CCI-Lite-1.0 &amp; CT-SDI-Lite-1.0 (12 Indikator SAFA), 5 Safeguards Non-Kompensasi, Common Data Layer (CDL).</text>
+      <text class="font-sans note-text" x="0" y="41"><tspan font-weight="700" fill="#B45309">[Data Demo / Simulasi]:</tspan> Data uji kelompok tani, nama auditor, profil lot mock di web portal (circularcoffee.circulartrace.id).</text>
+      <text class="font-sans note-text" x="0" y="55"><tspan font-weight="700" fill="#0D9488">[Usulan Pengembangan]:</tspan> Jalur umpan balik otomatisasi audit perbaikan (G3 continuous loop) &amp; telemetri IoT waktu nyata.</text>
+    </g>
+  </g>
+
+</svg>
+</body>
+</html>
