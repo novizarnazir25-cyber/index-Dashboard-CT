@@ -760,7 +760,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 const isMainModule = process.argv[1] && (process.argv[1].endsWith('server.js') || process.argv[1].endsWith('server'));
 if (isMainModule && process.env.NODE_ENV !== 'test') {
   server.listen(PORT, () => {
