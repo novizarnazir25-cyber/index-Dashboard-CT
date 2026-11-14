@@ -36,6 +36,10 @@ import {
   evaluateFarmerAnswersToAssessments
 } from '../ct4ci/practices-config.js';
 import {
+  REMEDIAL_ACTION_PLAYBOOK,
+  getRemedialActionForCheckpoint
+} from '../ct4ci/remedial-actions.js';
+import {
   ApplicabilityDecision,
   EvidenceSufficiency,
   ComplianceResult,
@@ -741,9 +745,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // 10. CAPA Management
+    // 10. CAPA Management & 4C Remedial Actions Playbook
+    if (pathname === '/api/capa/playbook' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, playbook: REMEDIAL_ACTION_PLAYBOOK }));
+      return;
+    }
+
     if (pathname === '/api/capa' && req.method === 'GET') {
-      const list = globalDataStore.capaManager.getAll();
+      const scopeId = url.searchParams.get('scopeId') || url.searchParams.get('farmerId');
+      let list = globalDataStore.capaManager.getAll();
+      if (scopeId) {
+        list = list.filter(c => c.scopeId === scopeId);
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, capas: list }));
       return;
@@ -769,13 +783,173 @@ const server = http.createServer(async (req, res) => {
     if (pathname.match(/^\/api\/capa\/([^/]+)\/verify-closure$/) && req.method === 'POST') {
       const capaId = pathname.split('/')[3];
       const body = await parseJsonBody(req);
+      const period = body.period || '2026-PANEN-RAYA';
       const capa = globalDataStore.capaManager.verifyClosure(capaId, {
         accepted: body.accepted !== false,
         verifierId: actorId,
         notes: body.notes
       });
+
+      let snapshot = null;
+      if (capa.status === CapaStatus.CLOSED) {
+        const cpCode = capa.checkpointCode || capa.checkpointId;
+        const key = `${capa.scopeId}_${cpCode}_${period}`;
+        const existingAss = globalDataStore.assessments.get(key);
+        if (existingAss) {
+          existingAss.complianceResult = ComplianceResult.COMPLIANT;
+          existingAss.evidenceSufficiency = EvidenceSufficiency.SUFFICIENT;
+          existingAss.evaluationNotes = `Telah diperbaiki via ${capa.capaCode}: ${capa.verifierClosureDecision}`;
+          existingAss.updatedAt = new Date().toISOString();
+        } else {
+          globalDataStore.assessments.set(key, {
+            id: `ASS-${key}`,
+            scopeType: capa.scopeType || 'PRODUCER',
+            scopeId: capa.scopeId,
+            checkpointId: cpCode,
+            checkpointCode: cpCode,
+            period,
+            applicability: ApplicabilityDecision.APPLICABLE,
+            evidenceSufficiency: EvidenceSufficiency.SUFFICIENT,
+            complianceResult: ComplianceResult.COMPLIANT,
+            evaluationNotes: `Telah diperbaiki via ${capa.capaCode}: ${capa.verifierClosureDecision}`
+          });
+        }
+
+        snapshot = globalDataStore.recalculateAndSaveSnapshot(capa.scopeId, period, true);
+
+        globalDataStore.addAuditLog({
+          entityType: 'CAPA',
+          entityId: capaId,
+          actionType: 'VERIFY_CLOSE_CAPA',
+          actorUserId: actorId,
+          actorRole,
+          changeReason: `Penutupan CAPA ${capa.capaCode} (${cpCode}). Skor CT-4CI baru: ${snapshot.ct4ciScore}%, Gate: ${snapshot.majorGateStatus}`
+        });
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, capa }));
+      res.end(JSON.stringify({ success: true, capa, snapshot }));
+      return;
+    }
+
+    // Execute Remedial Action for a specific CAPA
+    if (pathname.match(/^\/api\/capa\/([^/]+)\/execute-action$/) && req.method === 'POST') {
+      const capaId = pathname.split('/')[3];
+      const body = await parseJsonBody(req);
+      const period = body.period || '2026-PANEN-RAYA';
+      const proofRef = body.proofRef || `PROOF-${capaId}-${Date.now()}.pdf`;
+      const actualCost = body.actualCostIdr !== undefined ? body.actualCostIdr : 150000;
+
+      // 1. Submit completion proof
+      let capa = globalDataStore.capaManager.submitCompletionProof(capaId, proofRef, actualCost);
+
+      let snapshot = null;
+      // 2. If autoVerify is requested or if actor is verifier/manager, close it and update assessment
+      if (body.autoVerify !== false) {
+        capa = globalDataStore.capaManager.verifyClosure(capaId, {
+          accepted: true,
+          verifierId: actorId,
+          notes: body.notes || `Tindakan perbaikan terverifikasi lapangan: ${body.actionDetails || 'Sarana dan bukti pemenuhan 4C telah dipenuhi.'}`
+        });
+
+        const cpCode = capa.checkpointCode || capa.checkpointId;
+        const key = `${capa.scopeId}_${cpCode}_${period}`;
+        const existingAss = globalDataStore.assessments.get(key);
+        if (existingAss) {
+          existingAss.complianceResult = ComplianceResult.COMPLIANT;
+          existingAss.evidenceSufficiency = EvidenceSufficiency.SUFFICIENT;
+          existingAss.evaluationNotes = `Telah diperbaiki via ${capa.capaCode}: ${capa.verifierClosureDecision}`;
+          existingAss.updatedAt = new Date().toISOString();
+        } else {
+          globalDataStore.assessments.set(key, {
+            id: `ASS-${key}`,
+            scopeType: capa.scopeType || 'PRODUCER',
+            scopeId: capa.scopeId,
+            checkpointId: cpCode,
+            checkpointCode: cpCode,
+            period,
+            applicability: ApplicabilityDecision.APPLICABLE,
+            evidenceSufficiency: EvidenceSufficiency.SUFFICIENT,
+            complianceResult: ComplianceResult.COMPLIANT,
+            evaluationNotes: `Telah diperbaiki via ${capa.capaCode}: ${capa.verifierClosureDecision}`
+          });
+        }
+
+        snapshot = globalDataStore.recalculateAndSaveSnapshot(capa.scopeId, period, true);
+
+        globalDataStore.addAuditLog({
+          entityType: 'CAPA',
+          entityId: capaId,
+          actionType: 'EXECUTE_AND_CLOSE_CAPA',
+          actorUserId: actorId,
+          actorRole,
+          changeReason: `Eksekusi & verifikasi tindakan perbaikan ${capa.capaCode}. Skor CT-4CI: ${snapshot.ct4ciScore}%, Gate: ${snapshot.majorGateStatus}`
+        });
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, capa, snapshot }));
+      return;
+    }
+
+    // Batch Resolve All Open CAPAs for a Farmer (Quick Remediation / Simulation)
+    if (pathname === '/api/capa/resolve-all' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const farmerId = body.farmerId || 'FARMER-SLK-001';
+      const period = body.period || '2026-PANEN-RAYA';
+      const notes = body.notes || 'Seluruh tindakan perbaikan 4C telah dilaksanakan dan diverifikasi memenuhi standar.';
+
+      const openCapas = globalDataStore.capaManager.getForScope(farmerId).filter(c => c.status !== CapaStatus.CLOSED);
+      let resolvedCount = 0;
+
+      openCapas.forEach(c => {
+        const proofRef = c.completionProofRef || `PROOF-${c.capaCode}-VERIFIED.pdf`;
+        globalDataStore.capaManager.submitCompletionProof(c.id, proofRef, c.actualCostIdr || c.estimatedCostIdr);
+        globalDataStore.capaManager.verifyClosure(c.id, {
+          accepted: true,
+          verifierId: actorId,
+          notes: `${notes} (Tindakan: ${c.correctiveActionPlan})`
+        });
+
+        const cpCode = c.checkpointCode || c.checkpointId;
+        const key = `${farmerId}_${cpCode}_${period}`;
+        const existingAss = globalDataStore.assessments.get(key);
+        if (existingAss) {
+          existingAss.complianceResult = ComplianceResult.COMPLIANT;
+          existingAss.evidenceSufficiency = EvidenceSufficiency.SUFFICIENT;
+          existingAss.evaluationNotes = `Telah diperbaiki via ${c.capaCode}: ${c.correctiveActionPlan}`;
+          existingAss.updatedAt = new Date().toISOString();
+        } else {
+          globalDataStore.assessments.set(key, {
+            id: `ASS-${key}`,
+            scopeType: 'PRODUCER',
+            scopeId: farmerId,
+            checkpointId: cpCode,
+            checkpointCode: cpCode,
+            period,
+            applicability: ApplicabilityDecision.APPLICABLE,
+            evidenceSufficiency: EvidenceSufficiency.SUFFICIENT,
+            complianceResult: ComplianceResult.COMPLIANT,
+            evaluationNotes: `Telah diperbaiki via ${c.capaCode}: ${c.correctiveActionPlan}`
+          });
+        }
+        resolvedCount++;
+      });
+
+      // Recalculate CT-4CI snapshot
+      const snapshot = globalDataStore.recalculateAndSaveSnapshot(farmerId, period, true);
+
+      globalDataStore.addAuditLog({
+        entityType: 'CAPA_BATCH',
+        entityId: farmerId,
+        actionType: 'RESOLVE_ALL_CAPAS',
+        actorUserId: actorId,
+        actorRole,
+        changeReason: `Penyelesaian massal ${resolvedCount} temuan CAPA petani ${farmerId}. Skor CT-4CI: ${snapshot.ct4ciScore}%, Gate: ${snapshot.majorGateStatus}`
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, farmerId, period, resolvedCount, snapshot }));
       return;
     }
 

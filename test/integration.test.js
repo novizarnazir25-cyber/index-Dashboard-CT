@@ -242,4 +242,37 @@ describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
     assert.strictEqual(evalRes2.body.snapshot.majorGateStatus, 'UNRESOLVED');
     assert.ok(evalRes2.body.generatedCapasCount > 0);
   });
+
+  it('10. GET /api/capa/playbook returns 4C remedial action guides with steps and evidence', async () => {
+    const res = await makeRequest('/api/capa/playbook');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.ok(Array.isArray(res.body.playbook));
+    assert.ok(res.body.playbook.length >= 8);
+
+    const bannedChemAction = res.body.playbook.find(p => p.id === 'ACT-01-BANNED-CHEMICALS');
+    assert.ok(bannedChemAction);
+    assert.strictEqual(bannedChemAction.isMajor, true);
+    assert.ok(bannedChemAction.actionSteps.length >= 3);
+    assert.ok(bannedChemAction.requiredEvidence.length >= 2);
+  });
+
+  it('11. POST /api/capa/resolve-all resolves open CAPAs and unlocks CT-4CI Major Gate to PASSED', async () => {
+    // 1. Get open CAPAs
+    const capaListRes = await makeRequest('/api/capa?farmerId=FARMER-SLK-001');
+    assert.strictEqual(capaListRes.status, 200);
+
+    // 2. Resolve all CAPAs
+    const resolveRes = await makeRequest('/api/capa/resolve-all', { method: 'POST' }, {
+      farmerId: 'FARMER-SLK-001',
+      period: '2026-PANEN-RAYA',
+      notes: 'Verifikasi pemenuhan tindakan perbaikan 4C lengkap'
+    });
+
+    assert.strictEqual(resolveRes.status, 200);
+    assert.strictEqual(resolveRes.body.success, true);
+    assert.ok(resolveRes.body.snapshot);
+    assert.strictEqual(resolveRes.body.snapshot.majorGateStatus, 'PASSED');
+    assert.strictEqual(resolveRes.body.snapshot.ct4ciScore, 100);
+  });
 });

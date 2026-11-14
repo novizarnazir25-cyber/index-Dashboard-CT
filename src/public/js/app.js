@@ -247,8 +247,12 @@ async function loadDashboardOverview() {
       } else {
         gateBanner.className = 'gate-banner UNRESOLVED';
         gateText.textContent = 'BELUM MEMENUHI SYARAT (MAJOR GATE UNRESOLVED)';
-        gateSub.textContent =
-          `${ct4ci.majorStats.nonCompliant} Major Terbukti Gagal | ${ct4ci.majorStats.insufficientEvidence} Major Kurang Bukti | ${ct4ci.majorStats.undecidedApplicability} Major Belum Diputuskan`;
+        gateSub.innerHTML = `
+          <div>${ct4ci.majorStats.nonCompliant} Major Terbukti Gagal | ${ct4ci.majorStats.insufficientEvidence} Major Kurang Bukti</div>
+          <button class="btn btn-sm" onclick="switchTab('temuan-capa')" style="margin-top: 4px; background: white; color: #dc2626; font-weight: 700; border: none; padding: 3px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            🛠️ Terapkan Aksi Perbaikan (CAPA) →
+          </button>
+        `;
       }
 
       // Dimensions
@@ -1477,7 +1481,8 @@ function openDrillDownModal(checkpointCode) {
 
   const ass = cachedAssessments.find(a => a.checkpointCode === checkpointCode);
   const relatedEvidences = cachedEvidences.filter(e => (e.checkpointIdsJson || '').includes(checkpointCode));
-  const openCapas = globalDataStore ? [] : [];
+  const existingCapa = cachedCapas.find(c => (c.checkpointCode === checkpointCode || c.checkpointId === checkpointCode));
+  const playbookMatch = cachedPlaybook.find(p => p.checkpoints.includes(checkpointCode));
 
   const modal = document.getElementById('drill-down-modal');
   const content = document.getElementById('drill-down-content');
@@ -1494,7 +1499,7 @@ function openDrillDownModal(checkpointCode) {
 
     <!-- Step 1: Pertanyaan Lapangan & Persyaratan -->
     <div class="card" style="padding: 12px; margin-bottom: 12px; background: #f8fafc;">
-      <strong style="font-size: 12px; color: var(--primary);">1. Pertanyaan Lapangan & SOP:</strong>
+      <strong style="font-size: 12px; color: var(--primary);">1. Pertanyaan Lapangan & Persyaratan 4C:</strong>
       <p style="font-size: 12px; margin-top: 4px;">${cp.fieldQuestionPrompt}</p>
       <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
         <strong>Bukti Wajib:</strong> ${cp.requiredEvidenceDescription}
@@ -1523,12 +1528,46 @@ function openDrillDownModal(checkpointCode) {
       </div>
     </div>
 
-    <!-- Step 4: Status CAPA Jika Ada Temuan -->
-    <div class="card" style="padding: 12px; margin-bottom: 16px; background: #fff1f2;">
-      <strong style="font-size: 12px; color: #991b1b;">4. Rencana Tindakan Perbaikan (CAPA):</strong>
-      <p style="font-size: 11px; color: #7f1d1d; margin-top: 4px;">
-        Jika checkpoint ini terbukti tidak sesuai, sistem mewajibkan penerbitan CAPA untuk penyelesaian kesenjangan standar 4C.
-      </p>
+    <!-- Step 4: Status CAPA & Aksi Perbaikan yang Dilakukan -->
+    <div class="card" style="padding: 12px; margin-bottom: 16px; background: ${existingCapa ? '#fff1f2' : '#f0fdf4'}; border: 1px solid ${existingCapa ? '#fecaca' : '#bbf7d0'};">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <strong style="font-size: 12px; color: ${existingCapa ? '#991b1b' : '#166534'};">
+          4. Tindakan Perbaikan (CAPA) untuk Pemenuhan Kesiapan 4C:
+        </strong>
+        ${existingCapa ? `
+          <span class="badge ${existingCapa.status === 'CLOSED' ? 'badge-pass' : 'badge-fail'}">
+            ${existingCapa.status}
+          </span>
+        ` : ''}
+      </div>
+
+      ${existingCapa ? `
+        <div style="font-size: 11px; color: #7f1d1d; margin-bottom: 6px;">
+          <strong>Temuan:</strong> ${existingCapa.findingTitle}<br>
+          <strong>Langkah Aksi:</strong> ${existingCapa.correctiveActionPlan}
+        </div>
+        ${existingCapa.status !== 'CLOSED' ? `
+          <button class="btn btn-primary btn-sm" onclick="closeDrillDownModal(); openExecuteCapaModal('${existingCapa.id}');" style="font-size: 11px; padding: 4px 10px;">
+            🛠️ Lakukan Aksi Perbaikan Ini Sekarang
+          </button>
+        ` : `
+          <div style="font-size: 11px; color: #059669; font-weight: 700;">
+            ✅ Temuan telah diverifikasi selesai. Bukti: ${existingCapa.completionProofRef || 'Lengkap'}
+          </div>
+        `}
+      ` : (playbookMatch ? `
+        <div style="font-size: 11px; color: #14532d;">
+          <strong>Panduan Aksi Perbaikan Standar (${playbookMatch.title}):</strong>
+          <ul style="margin: 4px 0 6px 16px;">
+            ${playbookMatch.actionSteps.slice(0, 2).map(s => `<li>${s}</li>`).join('')}
+          </ul>
+          <span style="color: #166534; font-weight: 600;">Bukti: ${playbookMatch.requiredEvidence[0]}</span>
+        </div>
+      ` : `
+        <p style="font-size: 11px; color: #14532d; margin: 0;">
+          Kriteria ini terpenuhi atau belum memerlukan penerbitan tindakan perbaikan khusus.
+        </p>
+      `)}
     </div>
 
     <div style="display: flex; justify-content: flex-end; gap: 8px;">
@@ -1544,28 +1583,130 @@ function closeDrillDownModal() {
 }
 
 // ----------------------------------------------------------------------------
-// TAB 9: Temuan & CAPA Table
+// TAB 9: Temuan & Tindakan Perbaikan (CAPA) Menuju Kesiapan 4C
 // ----------------------------------------------------------------------------
-async function loadCapaTable() {
-  const container = document.getElementById('capa-table-container');
+let cachedPlaybook = [];
+
+async function loadCapaPlaybook() {
+  const container = document.getElementById('capa-playbook-container');
+  if (!container) return;
+
   try {
-    const res = await fetch(`${API_BASE}/api/capa`);
+    const res = await fetch(`${API_BASE}/api/capa/playbook`);
     const json = await res.json();
     if (!json.success) return;
 
-    cachedCapas = json.capas;
+    cachedPlaybook = json.playbook || [];
+    let html = '';
+
+    cachedPlaybook.forEach(pb => {
+      html += `
+        <div class="playbook-card ${pb.isMajor ? 'is-major' : ''}">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+              <strong style="font-size: 13px; color: var(--primary);">${pb.title}</strong>
+              <div style="display: flex; gap: 4px;">
+                ${pb.isMajor ? '<span class="badge badge-fail" style="font-size: 10px;">KRITERIA MAJOR</span>' : '<span class="badge badge-minor" style="font-size: 10px;">STANDAR</span>'}
+                ${pb.checkpoints.map(cp => `<span class="badge badge-minor" style="font-size: 10px;">4C: ${cp}</span>`).join('')}
+              </div>
+            </div>
+            <div style="font-size: 11px; color: #b91c1c; background: #fff1f2; padding: 6px 10px; border-radius: 4px; margin-bottom: 8px;">
+              ⚠️ <strong>Penyebab/Masalah Lapangan:</strong> ${pb.currentProblem}
+            </div>
+            <div style="font-size: 11px; font-weight: 700; color: #334155; margin-bottom: 4px;">🛠️ Langkah Aksi Perbaikan yang Dilakukan:</div>
+            <ul class="playbook-step-list">
+              ${pb.actionSteps.map(st => `<li>${st}</li>`).join('')}
+            </ul>
+            <div style="font-size: 11px; color: #475569; background: #f8fafc; padding: 6px 10px; border-radius: 4px; margin-top: 6px; border-left: 2px solid #0284c7;">
+              📌 <strong>Bukti Diperlukan:</strong> ${pb.requiredEvidence.join(' • ')}
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 6px;">
+            <div style="font-size: 11px; color: var(--text-muted);">
+              Estimasi Biaya: <strong style="color: var(--primary);">Rp ${pb.estimatedCostIdr.toLocaleString('id-ID')}</strong>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="applyPlaybookActionToOpenCapas('${pb.id}')">
+              🚀 Terapkan Aksi Ini
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+  } catch (err) {
+    console.error('Error loading playbook:', err);
+  }
+}
+
+function togglePlaybook() {
+  const card = document.getElementById('capa-playbook-card');
+  const label = document.getElementById('toggle-playbook-label');
+  if (!card) return;
+
+  const isHidden = card.style.display === 'none' || card.style.display === '';
+  if (isHidden) {
+    card.style.display = 'block';
+    if (label) label.textContent = 'Tutup Katalog 9 Aksi 4C';
+    if (cachedPlaybook.length === 0) loadCapaPlaybook();
+    window.scrollTo({ top: card.offsetTop - 80, behavior: 'smooth' });
+  } else {
+    card.style.display = 'none';
+    if (label) label.textContent = 'Buka Katalog 9 Aksi 4C';
+  }
+}
+
+async function loadCapaTable() {
+  const container = document.getElementById('capa-table-container');
+  const summary = document.getElementById('capa-metrics-summary');
+  if (!container) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/capa?farmerId=${currentFarmerId}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedCapas = json.capas || [];
+
+    const totalCount = cachedCapas.length;
+    const openCount = cachedCapas.filter(c => c.status === 'OPEN').length;
+    const pendingCount = cachedCapas.filter(c => c.status === 'PENDING_VERIFICATION').length;
+    const closedCount = cachedCapas.filter(c => c.status === 'CLOSED').length;
+    const majorCount = cachedCapas.filter(c => (c.issueType || '').includes('MAJOR')).length;
+
+    if (summary) {
+      summary.innerHTML = `
+        <span class="badge badge-minor" style="font-size: 11px;">Total: ${totalCount} Temuan</span>
+        <span class="badge badge-fail" style="font-size: 11px;">Major: ${majorCount}</span>
+        <span class="badge badge-fail" style="font-size: 11px;">Terbuka: ${openCount}</span>
+        <span class="badge badge-pending" style="font-size: 11px;">Menunggu Verifikasi: ${pendingCount}</span>
+        <span class="badge badge-pass" style="font-size: 11px;">Selesai (Closed): ${closedCount}</span>
+      `;
+    }
+
+    if (cachedCapas.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 30px; color: var(--text-muted); background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 28px; margin-bottom: 8px;">🎉</div>
+          <strong>Tidak ada temuan ketidaksesuaian (CAPA) terbuka untuk petani ini.</strong>
+          <div style="font-size: 12px; margin-top: 4px;">Seluruh kriteria yang berlaku telah terpenuhi atau belum dilakukan penilaian.</div>
+        </div>
+      `;
+      return;
+    }
+
     let html = `
       <table class="data-table">
         <thead>
           <tr>
             <th>Kode CAPA</th>
-            <th>Judul Temuan</th>
-            <th>Checkpoint</th>
-            <th>Klasifikasi</th>
-            <th>Rencana Aksi & Tenggat</th>
-            <th>Estimasi Biaya</th>
+            <th>Checkpoint 4C</th>
+            <th>Temuan & Akar Masalah</th>
+            <th>Tindakan Perbaikan yang Dilakukan (Action Steps)</th>
+            <th>Bukti Perbaikan</th>
+            <th>Biaya (Est / Aktual)</th>
             <th>Status</th>
-            <th>Aksi</th>
+            <th>Aksi Interaktif</th>
           </tr>
         </thead>
         <tbody>
@@ -1573,29 +1714,67 @@ async function loadCapaTable() {
 
     cachedCapas.forEach(c => {
       const isClosed = c.status === 'CLOSED';
+      const isPending = c.status === 'PENDING_VERIFICATION';
+      const isMajor = (c.issueType || '').includes('MAJOR');
+
       html += `
-        <tr>
-          <td><strong>${c.capaCode}</strong></td>
+        <tr style="${isMajor && !isClosed ? 'background: #fffafa;' : ''}">
           <td>
-            <strong>${c.findingTitle}</strong><br>
-            <span style="font-size:10px; color:#64748b;">PJ: ${c.responsiblePerson}</span>
+            <strong>${c.capaCode}</strong><br>
+            <span style="font-size: 10px; color: #64748b;">${c.createdAt ? c.createdAt.split('T')[0] : ''}</span>
           </td>
-          <td><span class="badge badge-minor">${c.checkpointCode || c.checkpointId}</span></td>
-          <td><span class="badge ${c.issueType.includes('MAJOR') ? 'badge-major' : 'badge-minor'}">${c.issueType}</span></td>
           <td>
-            <div style="font-size:11px;">${c.correctiveActionPlan.substring(0, 60)}...</div>
-            <div style="font-size:10px; color:var(--text-muted);">Tenggat: ${c.deadlineDate}</div>
+            <strong style="color: var(--primary);">${c.checkpointCode || c.checkpointId}</strong><br>
+            <span class="badge ${isMajor ? 'badge-fail' : 'badge-minor'}" style="font-size: 9px;">${isMajor ? 'MAJOR' : 'MINOR'}</span>
           </td>
-          <td>Rp ${(c.estimatedCostIdr || 0).toLocaleString('id-ID')}</td>
           <td>
-            <span class="badge ${isClosed ? 'badge-pass' : (c.status === 'PENDING_VERIFICATION' ? 'badge-pending' : 'badge-fail')}">
-              ${c.status}
+            <div style="font-weight: 700; font-size: 12px; color: #1e293b;">${c.findingTitle}</div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${c.rootCauseAnalysis || '-'}</div>
+            <div style="font-size: 10px; color: #475569; margin-top: 2px;">PJ: <em>${c.responsiblePerson}</em></div>
+          </td>
+          <td>
+            <div style="font-size: 11px; color: #334155; line-height: 1.4;">
+              ${c.correctiveActionPlan}
+            </div>
+            <div style="font-size: 10px; color: #b45309; font-weight: 600; margin-top: 3px;">
+              ⏳ Tenggat: ${c.deadlineDate}
+            </div>
+          </td>
+          <td>
+            ${c.completionProofRef ? `
+              <div style="font-size: 11px; color: #059669; font-weight: 600;">
+                📎 <code>${c.completionProofRef}</code>
+              </div>
+            ` : `
+              <span style="font-size: 11px; color: #94a3b8; font-style: italic;">Belum diunggah</span>
+            `}
+          </td>
+          <td>
+            <div style="font-size: 11px;">Est: Rp ${(c.estimatedCostIdr || 0).toLocaleString('id-ID')}</div>
+            ${c.actualCostIdr ? `<div style="font-size: 10px; font-weight: 700; color: #0284c7;">Akt: Rp ${c.actualCostIdr.toLocaleString('id-ID')}</div>` : ''}
+          </td>
+          <td>
+            <span class="badge ${isClosed ? 'badge-pass' : (isPending ? 'badge-pending' : 'badge-fail')}" style="font-size: 10px;">
+              ${isClosed ? '✅ CLOSED' : (isPending ? '⏳ PENDING VERIF' : '🚨 OPEN')}
             </span>
           </td>
           <td>
-            ${!isClosed && currentRole === 'VERIFIER' ?
-              `<button class="btn btn-primary btn-sm" onclick="closeCapaDialog('${c.id}')">Tutup Temuan</button>` :
-              `<button class="btn btn-secondary btn-sm" onclick="alert('Bukti perbaikan telah terlampir.')">Lihat</button>`}
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              ${!isClosed ? `
+                <button class="btn btn-primary btn-sm" onclick="openExecuteCapaModal('${c.id}')" style="font-size: 11px; padding: 4px 8px;">
+                  🛠️ Lakukan Aksi Perbaikan
+                </button>
+              ` : `
+                <button class="btn btn-secondary btn-sm" onclick="viewCapaDetail('${c.id}')" style="font-size: 11px; padding: 4px 8px; color: #059669; font-weight: 700;">
+                  ✅ Terverifikasi Lulus
+                </button>
+              `}
+              ${isPending ? `
+                <button class="btn btn-sm" onclick="openVerifyCapaModal('${c.id}')" style="background: #0284c7; color: white; border: none; font-size: 10px; padding: 3px 6px;">
+                  🔍 Verifikasi & Tutup
+                </button>
+              ` : ''}
+            </div>
           </td>
         </tr>
       `;
@@ -1608,25 +1787,320 @@ async function loadCapaTable() {
   }
 }
 
-async function closeCapaDialog(capaId) {
-  const notes = prompt('Masukkan catatan keputusan penutupan temuan oleh verifier:', 'Bukti fisik telah diperiksa dan dinyatakan memenuhi standar.');
+// ----------------------------------------------------------------------------
+// Execute Remedial Action Modal Controller
+// ----------------------------------------------------------------------------
+function openExecuteCapaModal(capaId) {
+  const capa = cachedCapas.find(c => c.id === capaId);
+  if (!capa) return;
+
+  const modal = document.getElementById('execute-capa-modal');
+  const content = document.getElementById('execute-capa-content');
+  if (!modal || !content) return;
+
+  const cpCode = capa.checkpointCode || capa.checkpointId;
+  const playbookMatch = cachedPlaybook.find(p => p.checkpoints.includes(cpCode));
+
+  const defaultAction = capa.correctiveActionPlan || (playbookMatch ? playbookMatch.actionSteps.join('. ') : 'Pelaksanaan perbaikan sarana dan SOP lapangan.');
+  const defaultProof = capa.completionProofRef || (playbookMatch ? playbookMatch.completionProofTemplate : `REF-BUKTI-PERBAIKAN-${cpCode}-2026.pdf`);
+  const defaultCost = capa.actualCostIdr || capa.estimatedCostIdr || (playbookMatch ? playbookMatch.estimatedCostIdr : 150000);
+
+  content.innerHTML = `
+    <div style="border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <h3 style="margin: 0; font-size: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+            <span>🛠️</span> Pelaksanaan Tindakan Perbaikan (CAPA Remedial Action)
+          </h3>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+            Kode: <strong>${capa.capaCode}</strong> • Checkpoint: <strong>${cpCode}</strong> (${capa.issueType})
+          </div>
+        </div>
+        <span class="badge ${capa.issueType.includes('MAJOR') ? 'badge-fail' : 'badge-minor'}">
+          ${capa.issueType.includes('MAJOR') ? 'KRITERIA MAJOR' : 'STANDAR MINOR'}
+        </span>
+      </div>
+    </div>
+
+    <!-- Finding Summary -->
+    <div style="background: #fff1f2; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 12px;">
+      <strong style="color: #991b1b;">Temuan Ketidaksesuaian:</strong>
+      <div style="color: #7f1d1d; margin-top: 2px;">${capa.findingTitle}</div>
+      ${capa.rootCauseAnalysis ? `<div style="color: #b91c1c; font-size: 11px; margin-top: 4px;">Akar Masalah: ${capa.rootCauseAnalysis}</div>` : ''}
+    </div>
+
+    ${playbookMatch ? `
+      <!-- Playbook Recommendation -->
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; font-size: 11px;">
+        <strong style="color: #166534;">💡 Panduan Aksi Standar 4C Playbook (${playbookMatch.title}):</strong>
+        <ul style="margin: 4px 0 0 16px; color: #14532d;">
+          ${playbookMatch.actionSteps.map(s => `<li>${s}</li>`).join('')}
+        </ul>
+      </div>
+    ` : ''}
+
+    <form id="execute-capa-form" onsubmit="event.preventDefault(); submitExecuteCapaAction('${capa.id}');">
+      <div class="form-group" style="margin-bottom: 14px;">
+        <label class="form-label"><strong>Tindakan Konkret yang Dilaksanakan (*):</strong></label>
+        <textarea id="exec-action-details" class="form-control" rows="3" required style="width: 100%; font-size: 12px; line-height: 1.4;">${escapeHtml(defaultAction)}</textarea>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+          Jelaskan langkah nyata yang telah dilakukan di lapangan (misal: penghentian pemakaian racun, pembelian APD, pemusnahan limbah, pembuatan teras).
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 14px;">
+        <div class="form-group">
+          <label class="form-label"><strong>Lampiran Dokumen / Bukti Perbaikan (*):</strong></label>
+          <input type="text" id="exec-proof-ref" class="form-control" value="${escapeHtml(defaultProof)}" required>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+            Dapat berupa berkas foto lapangan, nota pembelian, berita acara ICS, atau berkas GeoJSON.
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><strong>Biaya Aktual Pelaksanaan (Rp):</strong></label>
+          <input type="number" id="exec-actual-cost" class="form-control" value="${defaultCost}" min="0">
+        </div>
+      </div>
+
+      <div class="form-group" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; margin-bottom: 16px;">
+        <label style="font-size: 12px; display: flex; align-items: flex-start; gap: 8px; cursor: pointer; color: #78350f;">
+          <input type="checkbox" id="exec-auto-verify" checked style="margin-top: 2px;">
+          <span>
+            <strong>Verifikasi & Selesaikan Langsung (Update Snapshot CT-4CI Seketika):</strong>
+            <span style="display: block; font-size: 11px; color: #92400e; margin-top: 2px;">
+              Jika dicentang, verifikator ICS langsung menerima bukti perbaikan, status CAPA diubah menjadi <strong>CLOSED</strong>, checkpoint terkait diubah menjadi <strong>SESUAI (C=1, V=1)</strong>, dan status Major Gate dihitung ulang.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeExecuteCapaModal()">Batal</button>
+        <button type="submit" class="btn btn-primary" style="background: #059669; border-color: #059669; font-weight: 700;">
+          💾 Simpan & Eksekusi Perbaikan
+        </button>
+      </div>
+    </form>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeExecuteCapaModal() {
+  const modal = document.getElementById('execute-capa-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function submitExecuteCapaAction(capaId) {
+  const actionDetails = document.getElementById('exec-action-details')?.value || '';
+  const proofRef = document.getElementById('exec-proof-ref')?.value || '';
+  const actualCostIdr = Number(document.getElementById('exec-actual-cost')?.value) || 0;
+  const autoVerify = document.getElementById('exec-auto-verify')?.checked ?? true;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/capa/${capaId}/execute-action`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Actor-Role': currentRole,
+        'X-Actor-Id': currentActorId
+      },
+      body: JSON.stringify({
+        actionDetails,
+        proofRef,
+        actualCostIdr,
+        autoVerify,
+        period: currentPeriod
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success) {
+      alert(`Gagal mengeksekusi perbaikan: ${json.error || 'Terjadi kesalahan'}`);
+      return;
+    }
+
+    closeExecuteCapaModal();
+
+    // Reload all state
+    await loadCapaTable();
+    await loadDashboardOverview();
+    await loadCheckpoints();
+
+    if (json.snapshot) {
+      const snap = json.snapshot;
+      alert(`🎉 Tindakan perbaikan berhasil diverifikasi!\n\nCheckpoint telah dinyatakan SESUAI dengan bukti lengkap.\n• Skor CT-4CI Baru: ${snap.ct4ciScore}%\n• Status Major Gate: ${snap.majorGateStatus}\n• Cakupan Bukti (EC): ${snap.evidenceCoveragePct}%`);
+    } else {
+      alert(`Tindakan perbaikan dan bukti (${proofRef}) telah dikirimkan. Menunggu verifikasi inspeksi lapangan.`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+function openVerifyCapaModal(capaId) {
+  const capa = cachedCapas.find(c => c.id === capaId);
+  if (!capa) return;
+
+  const notes = prompt(
+    `Konfirmasi Penutupan Temuan (${capa.capaCode}):\nBukti Terlampir: "${capa.completionProofRef || 'Terlampir'}"\n\nMasukkan catatan verifikator ICS:`,
+    'Bukti perbaikan fisik/dokumen telah diperiksa dan dinyatakan memenuhi standar 4C.'
+  );
   if (notes === null) return;
 
+  verifyCapaClosure(capaId, notes);
+}
+
+async function verifyCapaClosure(capaId, notes) {
   try {
     const res = await fetch(`${API_BASE}/api/capa/${capaId}/verify-closure`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': 'VERIFIER', 'X-Actor-Id': currentActorId },
-      body: JSON.stringify({ accepted: true, notes })
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Actor-Role': currentRole,
+        'X-Actor-Id': currentActorId
+      },
+      body: JSON.stringify({ accepted: true, notes, period: currentPeriod })
     });
     const json = await res.json();
     if (json.success) {
-      alert('CAPA berhasil ditutup setelah verifikasi bukti.');
-      loadCapaTable();
-      loadDashboardOverview();
+      await loadCapaTable();
+      await loadDashboardOverview();
+      await loadCheckpoints();
+      if (json.snapshot) {
+        alert(`CAPA berhasil diverifikasi dan ditutup!\nSkor CT-4CI baru: ${json.snapshot.ct4ciScore}%, Gate: ${json.snapshot.majorGateStatus}`);
+      } else {
+        alert('CAPA berhasil ditutup.');
+      }
     }
   } catch (err) {
-    alert('Error: ' + err.message);
+    alert(`Error: ${err.message}`);
   }
+}
+
+async function resolveAllCapas() {
+  const openCount = cachedCapas.filter(c => c.status !== 'CLOSED').length;
+  if (openCount === 0) {
+    alert('Seluruh tindakan perbaikan (CAPA) sudah selesai diverifikasi (0 temuan terbuka).');
+    return;
+  }
+
+  const confirmMsg = `Konfirmasi Eksekusi Aksi Perbaikan Mandiri:\n\nApakah Anda ingin menyelesaikan dan memverifikasi seluruh ${openCount} temuan tindakan perbaikan untuk Petani aktif?\n\nSistem akan secara otomatis menerapkan panduan bukti perbaikan 4C, memverifikasi penutupan CAPA, dan menghitung ulang CT-4CI snapshot secara real-time.`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/capa/resolve-all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Actor-Role': currentRole,
+        'X-Actor-Id': currentActorId
+      },
+      body: JSON.stringify({
+        farmerId: currentFarmerId,
+        period: currentPeriod,
+        notes: 'Seluruh aksi perbaikan pemenuhan standar 4C telah dilaksanakan dan diverifikasi di lapangan.'
+      })
+    });
+
+    const json = await res.json();
+    if (json.success) {
+      await loadCapaTable();
+      await loadDashboardOverview();
+      await loadCheckpoints();
+      const snap = json.snapshot || {};
+      alert(`🎉 BERHASIL!\n\nSeluruh ${json.resolvedCount} tindakan perbaikan telah dieksekusi dan diverifikasi.\n\n• Skor CT-4CI: ${snap.ct4ciScore}%\n• Status Major Gate: ${snap.majorGateStatus} (MEMENUHI SYARAT)\n• Cakupan Bukti (EC): ${snap.evidenceCoveragePct}%\n\nSilakan cek tab "Dashboard Indeks" untuk melihat roda konsentris yang telah diperbarui!`);
+    } else {
+      alert(`Gagal: ${json.error || 'Terjadi kesalahan'}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+function applyPlaybookActionToOpenCapas(playbookId) {
+  const pb = cachedPlaybook.find(p => p.id === playbookId);
+  if (!pb) return;
+
+  const matchingCapas = cachedCapas.filter(c => c.status !== 'CLOSED' && pb.checkpoints.includes(c.checkpointCode || c.checkpointId));
+  if (matchingCapas.length === 0) {
+    alert(`Tidak ada temuan terbuka yang memerlukan aksi "${pb.title}". Kriteria ${pb.checkpoints.join(', ')} sudah sesuai.`);
+    return;
+  }
+
+  // Open the first matching CAPA modal
+  openExecuteCapaModal(matchingCapas[0].id);
+}
+
+function viewCapaDetail(capaId) {
+  const capa = cachedCapas.find(c => c.id === capaId);
+  if (!capa) return;
+
+  const modal = document.getElementById('drill-down-modal');
+  const content = document.getElementById('drill-down-content');
+  if (!modal || !content) return;
+
+  content.innerHTML = `
+    <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+      <h3 style="margin: 0; font-size: 16px; color: var(--primary);">Detail Tindakan Perbaikan (CAPA) Terverifikasi</h3>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Kode: <code>${capa.capaCode}</code> • Checkpoint: <strong>${capa.checkpointCode || capa.checkpointId}</strong></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; margin-bottom: 16px;">
+      <div><strong>Judul Temuan:</strong> ${capa.findingTitle}</div>
+      <div><strong>Klasifikasi:</strong> <span class="badge ${capa.issueType.includes('MAJOR') ? 'badge-fail' : 'badge-minor'}">${capa.issueType}</span></div>
+      <div><strong>Penanggung Jawab:</strong> ${capa.responsiblePerson}</div>
+      <div><strong>Status:</strong> <span class="badge badge-pass">${capa.status}</span></div>
+      <div><strong>Estimasi Biaya:</strong> Rp ${(capa.estimatedCostIdr || 0).toLocaleString('id-ID')}</div>
+      <div><strong>Biaya Aktual:</strong> Rp ${(capa.actualCostIdr || 0).toLocaleString('id-ID')}</div>
+    </div>
+    <div style="margin-bottom: 14px;">
+      <strong>Langkah Aksi yang Telah Dijalankan:</strong>
+      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 4px; border: 1px solid #e2e8f0; line-height: 1.4;">
+        ${capa.correctiveActionPlan}
+      </div>
+    </div>
+    <div style="margin-bottom: 14px;">
+      <strong>Bukti Perbaikan yang Diterima Verifier:</strong>
+      <div style="background: #ecfdf5; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 4px; border: 1px solid #a7f3d0; color: #065f46;">
+        📎 <strong>${capa.completionProofRef || 'Telah dilampirkan'}</strong><br>
+        <span style="font-size: 11px; margin-top: 3px; display: block;">Keputusan Verifier: "${capa.verifierClosureDecision || 'Diterima'}"</span>
+      </div>
+    </div>
+    <div style="display: flex; justify-content: flex-end;">
+      <button class="btn btn-secondary" onclick="closeDrillDownModal()">Tutup</button>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function showNewCapaDialog() {
+  const title = prompt('Masukkan Judul Temuan Baru:', 'Penggunaan APD belum lengkap saat penyemprotan');
+  if (!title) return;
+  const cpCode = prompt('Masukkan Kode Checkpoint 4C (contoh: P045, P075, P083):', 'P045');
+  if (!cpCode) return;
+  const plan = prompt('Masukkan Rencana Tindakan Perbaikan yang Harus Dilakukan:', 'Penyediaan 1 paket APD lengkap dan pelatihan keselamatan kerja');
+  if (!plan) return;
+
+  fetch(`${API_BASE}/api/capa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Actor-Role': currentRole, 'X-Actor-Id': currentActorId },
+    body: JSON.stringify({
+      findingTitle: title,
+      checkpointId: cpCode,
+      checkpointCode: cpCode,
+      scopeId: currentFarmerId,
+      issueType: 'MAJOR_NON_COMPLIANT',
+      correctiveActionPlan: plan,
+      responsiblePerson: 'Petani & Pendamping ICS',
+      estimatedCostIdr: 250000
+    })
+  }).then(r => r.json()).then(d => {
+    if (d.success) {
+      alert(`CAPA baru (${d.capa.capaCode}) berhasil diterbitkan.`);
+      loadCapaTable();
+    }
+  });
 }
 
 // ----------------------------------------------------------------------------

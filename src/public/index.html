@@ -617,14 +617,57 @@
     <!-- TAB 9: TEMUAN & CAPA -->
     <!-- ===================================================================== -->
     <div id="tab-temuan-capa" class="tab-panel">
+      <!-- Top Action & Overview Card -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 10px;">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+              <span>🛠️</span> Rencana Tindakan Perbaikan (CAPA) Menuju Pemenuhan CT-4CI
+            </h3>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Tindakan perbaikan wajib dilaksanakan dan diverifikasi agar kriteria Major terpenuhi (Major Gate PASSED) dan skor kesiapan 4C mencapai standar pra-audit.
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-sm" onclick="resolveAllCapas()" style="background: #059669; border-color: #059669;" title="Terapkan perbaikan dan verifikasi seluruh temuan terbuka">
+              ⚡ Selesaikan Semua Aksi Perbaikan (Penuhi 4C)
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="togglePlaybook()">
+              📖 <span id="toggle-playbook-label">Buka Katalog 9 Aksi 4C</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="showNewCapaDialog()">
+              + Terbitkan CAPA Baru
+            </button>
+          </div>
+        </div>
+
+        <div style="font-size: 11px; color: #475569; background: #f8fafc; padding: 10px 14px; border-radius: 6px; border-left: 3px solid #0284c7; line-height: 1.5;">
+          🛡️ <strong>Kaidah Metodologi Non-Kompensatori:</strong> Kepatuhan Minor tidak dapat menutup kegagalan kriteria Major (seperti Paraquat, deforestasi, pembakaran lahan, atau pekerja anak). Setiap tindakan perbaikan yang diverifikasi langsung memperbarui status checkpoint terkait ($C_i = 1, V_i = 1$), membuka kunci status Major Gate dari <strong>UNRESOLVED</strong> ke <strong>PASSED</strong>, dan menghitung ulang skor CT-4CI dari database.
+        </div>
+      </div>
+
+      <!-- Collapsible 4C Remedial Action Playbook -->
+      <div id="capa-playbook-card" class="card" style="display: none; margin-bottom: 16px; border: 1px solid #bae6fd; background: #f0f9ff;">
+        <div class="card-title" style="color: #0369a1; display: flex; justify-content: space-between; align-items: center;">
+          <span>📖 Katalog Panduan Tindakan Perbaikan Terstandar 4C (4C Remedial Action Playbook)</span>
+          <button class="btn btn-secondary btn-sm" onclick="togglePlaybook()">Tutup Katalog</button>
+        </div>
+        <p style="font-size: 12px; color: #0284c7; margin-bottom: 14px;">
+          Panduan langkah konkret, bukti fisik yang harus disiapkan, dan perkiraan biaya untuk menutup ketidaksesuaian kriteria 4C:
+        </p>
+        <div id="capa-playbook-container" class="grid-2">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+
+      <!-- Main CAPA Table Card -->
       <div class="card">
         <div class="card-title">
-          <span>🛠️ Rencana Tindakan Perbaikan (Corrective Action Plan - CAPA)</span>
-          <button class="btn btn-primary btn-sm" onclick="showNewCapaDialog()">+ Terbitkan CAPA Baru</button>
+          <span>📋 Daftar Temuan & Status Pelaksanaan Aksi Perbaikan</span>
+          <div id="capa-metrics-summary" style="display: flex; gap: 6px;">
+            <!-- Populated by app.js -->
+          </div>
         </div>
-        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-          Aturan: Status "Selesai dikerjakan" belum menutup temuan sebelum bukti diunggah dan diterima oleh Verifier.
-        </p>
         <div id="capa-table-container">
           <!-- Populated by app.js -->
         </div>
@@ -933,6 +976,16 @@
     <div class="modal-dialog" style="max-width: 720px;">
       <button class="modal-close" onclick="closeEvaluationResultModal()">✕</button>
       <div id="evaluation-result-content">
+        <!-- Injected by app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Execute CAPA Remedial Action Modal -->
+  <div id="execute-capa-modal" class="modal-overlay">
+    <div class="modal-dialog" style="max-width: 680px;">
+      <button class="modal-close" onclick="closeExecuteCapaModal()">✕</button>
+      <div id="execute-capa-content">
         <!-- Injected by app.js -->
       </div>
     </div>
