@@ -129,24 +129,56 @@
         </div>
       </div>
 
-      <!-- Integrated 3-Index Grid (CT-4CI, CT-CI, CT-SDI) -->
-      <div class="grid-3" style="margin-bottom: 16px;">
-        <!-- CT-4CI Box -->
+      <!-- Circular Chart Visualizer Header & Mode Switcher -->
+      <div class="card" style="margin-bottom: 16px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 18px;">⭕</span>
+          <div>
+            <strong style="font-size: 13px; color: var(--text-main);">Visualisasi Diagram Lingkaran Terpadu (CT-4CI • CT-CCI • CT-SDI)</strong>
+            <div style="font-size: 11px; color: var(--text-muted);">Skala Terkalibrasi 0–100 • 3 Indeks Mandiri Sesuai Metodologi Paper</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <div style="display: inline-flex; background: #f1f5f9; padding: 3px; border-radius: 6px; border: 1px solid var(--border);">
+            <button id="btn-dash-multi" onclick="switchDashboardView('multi')" class="btn btn-sm" style="background: white; color: var(--text-main); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: none;">
+              🔘 3 Roda (Multi-Dial)
+            </button>
+            <button id="btn-dash-concentric" onclick="switchDashboardView('concentric')" class="btn btn-sm" style="background: transparent; color: var(--text-muted); font-weight: 600; border: none;">
+              🎯 Roda Konsentris (Multi-Ring)
+            </button>
+          </div>
+          <a href="/circular_indices_chart.html" target="_blank" class="btn btn-secondary btn-sm" style="text-decoration: none; display: flex; align-items: center; gap: 4px;">
+            <span>↗️</span> <span>Widget Layar Penuh</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- VIEW 1: TRIPLE MULTI-DIAL VIEW -->
+      <div id="dashboard-multi-dial" class="grid-3" style="margin-bottom: 16px;">
+        <!-- CT-4CI Box with SVG Circular Progress -->
         <div class="card" style="border-top: 4px solid var(--primary); margin-bottom: 0;">
           <div class="card-title">
             <span>🛡️ CT-4CI (4C Readiness Index)</span>
             <span class="badge badge-pass" id="badge-status-ct4ci">CALCULATED</span>
           </div>
-          <div style="text-align: center; padding: 10px 0;">
-            <div id="score-ct4ci" class="metric-val">95.9%</div>
-            <div class="metric-lbl">Tingkat Kesiapan Kepatuhan Internal</div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
+          
+          <!-- SVG Circular Diagram CT-4CI -->
+          <div class="circular-chart-box">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="dash-ct4ci-circle" class="circle-progress ct4ci-stroke" stroke-dasharray="95.9, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <text id="score-ct4ci" x="18" y="16.5" class="percentage-text" style="fill: var(--primary);">95.9%</text>
+              <text id="dash-ct4ci-gate" x="18" y="22.5" class="category-text" style="fill: #059669;">GATE: PASSED</text>
+            </svg>
+            <div class="metric-lbl" style="margin-top: 4px;">Tingkat Kesiapan Kepatuhan Internal</div>
+            <div style="margin-top: 4px; font-size: 11px; color: var(--text-muted);">
               Evidence Coverage (EC): <strong id="score-coverage" style="color: var(--primary);">100.0%</strong>
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
               <span id="metric-summary-counts">71 Sesuai / 74 Berlaku (Total 108 Checkpoint)</span>
             </div>
           </div>
+
           <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">SKOR PER DIMENSI:</div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
@@ -164,76 +196,174 @@
           </div>
         </div>
 
-        <!-- CT-CCI Box -->
+        <!-- CT-CCI Box with SVG Circular Progress -->
         <div class="card" style="border-top: 4px solid #0284c7; margin-bottom: 0;">
           <div class="card-title">
             <span>⭕ CT-CCI (Circularity Index)</span>
             <span class="badge badge-pass">VERIFIED</span>
           </div>
-          <div style="text-align: center; padding: 10px 0;">
-            <div id="score-ct-cci" class="metric-val" style="color: #0284c7;">56.04</div>
-            <div class="metric-lbl">Indeks Sirkularitas Aliran Fisik (0–100)</div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
-              Kategori: <strong style="color: #0284c7;">Berkembang</strong> (Basis Lot Terverifikasi)
+
+          <!-- SVG Circular Diagram CT-CCI -->
+          <div class="circular-chart-box">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="dash-cci-circle" class="circle-progress cci-stroke" stroke-dasharray="56.04, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <text id="score-ct-cci" x="18" y="16.5" class="percentage-text" style="fill: #0284c7;">56.04</text>
+              <text id="dash-cci-cat" x="18" y="22.5" class="category-text" style="fill: #0284c7;">Awal / Berkembang</text>
+            </svg>
+            <div class="metric-lbl" style="margin-top: 4px;">Indeks Sirkularitas Aliran Fisik (0–100)</div>
+            <div style="margin-top: 4px; font-size: 11px; color: var(--text-muted);">
+              Engine: <strong>CT-CCI-Lite-1.0</strong> (Aliran Massa Fisik)
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-              Engine: CT-CCI-Lite-1.0 (4 Rasio Aliran Massa)
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+              Basis: 4 Rasio Terverifikasi Lot
             </div>
           </div>
+
           <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">KOMPONEN RASIO SIRKULARITAS:</div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>CMI (Material Masuk 20%):</span>
-              <strong>46.67%</strong>
+              <strong id="dash-val-cmi">46.67%</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>BVC (Valorisasi Cascara 45%):</span>
-              <strong>90.00%</strong>
+              <strong id="dash-val-bvc">90.00%</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>WC (Air Daur Ulang 20%):</span>
-              <strong>27.27%</strong>
+              <strong id="dash-val-wc">27.27%</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px;">
               <span>RE (Energi Terbarukan 15%):</span>
-              <strong>25.00%</strong>
+              <strong id="dash-val-re">25.00%</strong>
             </div>
           </div>
         </div>
 
-        <!-- CT-SDI Box -->
+        <!-- CT-SDI Box with SVG Circular Progress -->
         <div class="card" style="border-top: 4px solid #16a34a; margin-bottom: 0;">
           <div class="card-title">
             <span>🌱 CT-SDI (Sustainability Index)</span>
             <span class="badge badge-pass">VERIFIED</span>
           </div>
-          <div style="text-align: center; padding: 10px 0;">
-            <div id="score-ct-sdi" class="metric-val" style="color: #16a34a;">84.44</div>
-            <div class="metric-lbl">Indeks Pembangunan Berkelanjutan (0–100)</div>
-            <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">
-              Kategori: <strong style="color: #16a34a;">Tinggi / Baik</strong> (4 Dimensi FAO SAFA)
+
+          <!-- SVG Circular Diagram CT-SDI -->
+          <div class="circular-chart-box">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="dash-sdi-circle" class="circle-progress sdi-stroke" stroke-dasharray="84.44, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <text id="score-ct-sdi" x="18" y="16.5" class="percentage-text" style="fill: #d97706;">84.44</text>
+              <text id="dash-sdi-cat" x="18" y="22.5" class="category-text" style="fill: #d97706;">Tinggi / Baik</text>
+            </svg>
+            <div class="metric-lbl" style="margin-top: 4px;">Indeks Pembangunan Berkelanjutan (0–100)</div>
+            <div style="margin-top: 4px; font-size: 11px; color: var(--text-muted);">
+              Engine: <strong>CT-SDI-Lite-1.0</strong> (12 Indikator SAFA)
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-              Engine: CT-SDI-Lite-1.0 (12 Indikator Inti)
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+              Basis: 4 Dimensi FAO SAFA
             </div>
           </div>
+
           <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
             <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">SKOR 4 PILAR SAFA:</div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>Environmental (E1–E3):</span>
-              <strong>83.33</strong>
+              <strong id="dash-sdi-dim-e">83.33</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>Social (S1–S3):</span>
-              <strong>85.56</strong>
+              <strong id="dash-sdi-dim-s">85.56</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
               <span>Economic (Ec1–Ec3):</span>
-              <strong>78.33</strong>
+              <strong id="dash-sdi-dim-ec">78.33</strong>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px;">
               <span>Governance (G1–G3):</span>
-              <strong>90.56</strong>
+              <strong id="dash-sdi-dim-g">90.56</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: CONCENTRIC MULTI-RING VIEW (Hidden by default) -->
+      <div id="dashboard-concentric-dial" class="concentric-card" style="display: none;">
+        <div class="concentric-container">
+          <!-- Concentric SVG Dial -->
+          <div style="text-align: center;">
+            <svg viewBox="0 0 200 200" class="concentric-chart">
+              <!-- Center Hub -->
+              <circle cx="100" cy="100" r="32" fill="#133023" />
+              <text x="100" y="96" fill="#ffffff" font-size="12" font-weight="800" text-anchor="middle">CT-3</text>
+              <text x="100" y="109" fill="#a7f3d0" font-size="7" font-weight="600" text-anchor="middle">TRI-INDEX</text>
+
+              <!-- Inner: CT-CCI (r = 48, C = 301.59) -->
+              <circle cx="100" cy="100" r="48" class="ring-bg" />
+              <circle id="dash-conc-ring-cci" cx="100" cy="100" r="48" class="ring-progress" stroke="#0284c7"
+                stroke-dasharray="301.59" stroke-dashoffset="132.58" />
+
+              <!-- Middle: CT-SDI (r = 66, C = 414.69) -->
+              <circle cx="100" cy="100" r="66" class="ring-bg" />
+              <circle id="dash-conc-ring-sdi" cx="100" cy="100" r="66" class="ring-progress" stroke="#d97706"
+                stroke-dasharray="414.69" stroke-dashoffset="64.53" />
+
+              <!-- Outer: CT-4CI (r = 84, C = 527.79) -->
+              <circle cx="100" cy="100" r="84" class="ring-bg" />
+              <circle id="dash-conc-ring-ct4ci" cx="100" cy="100" r="84" class="ring-progress" stroke="#059669"
+                stroke-dasharray="527.79" stroke-dashoffset="21.64" />
+            </svg>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+              Diagram Konsentris 3 Indeks (Skala 0–100)
+            </div>
+          </div>
+
+          <!-- Concentric Legend & Breakdown -->
+          <div style="flex: 1; max-width: 480px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid #a7f3d0; background: #ecfdf5;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: #059669; display: inline-block;"></span>
+                <div>
+                  <strong style="font-size: 12px; color: #064e3b;">Cincin Luar: CT-4CI (Kesiapan 4C)</strong>
+                  <div style="font-size: 11px; color: #047857;">108 Checkpoint • Major Gate Kritis</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span id="dash-conc-score-ct4ci" style="font-size: 16px; font-weight: 800; color: #065f46;">95.9%</span>
+                <div id="dash-conc-gate-ct4ci" style="font-size: 10px; font-weight: 700; color: #059669;">GATE PASSED</div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid #fde68a; background: #fffbeb;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: #d97706; display: inline-block;"></span>
+                <div>
+                  <strong style="font-size: 12px; color: #78350f;">Cincin Tengah: CT-SDI (Keberlanjutan)</strong>
+                  <div style="font-size: 11px; color: #b45309;">4 Pilar SAFA (E, S, Ec, G)</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span id="dash-conc-score-sdi" style="font-size: 16px; font-weight: 800; color: #b45309;">84.44</span>
+                <div style="font-size: 10px; font-weight: 700; color: #92400e;">TINGGI / BAIK</div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid #bae6fd; background: #f0f9ff;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: #0284c7; display: inline-block;"></span>
+                <div>
+                  <strong style="font-size: 12px; color: #0c4a6e;">Cincin Dalam: CT-CCI (Sirkularitas)</strong>
+                  <div style="font-size: 11px; color: #0369a1;">Aliran Massa Cascara, Air, Energi</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span id="dash-conc-score-cci" style="font-size: 16px; font-weight: 800; color: #0284c7;">56.04</span>
+                <div style="font-size: 10px; font-weight: 700; color: #0369a1;">AWAL / BERKEMBANG</div>
+              </div>
+            </div>
+
+            <div style="font-size: 11px; color: var(--text-muted); background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); line-height: 1.4;">
+              🛡️ <strong>Prinsip Integritas Metodologi:</strong> Ketiga indeks ini mengukur aspek berbeda (kepatuhan regulasi, sirkularitas fisik, dan keberlanjutan holistik) dan <em>tidak digabung menjadi skor komposit</em>.
             </div>
           </div>
         </div>

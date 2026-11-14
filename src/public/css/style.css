@@ -557,3 +557,97 @@ header .subtitle {
   .grid-4 { grid-template-columns: 1fr; }
   .filter-bar { flex-direction: column; align-items: stretch; }
 }
+
+/* ========================================================================= */
+/* CIRCULAR DIAGRAMS (DIAGRAM LINGKARAN INDEKS)                              */
+/* ========================================================================= */
+.circular-chart-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0 12px 0;
+}
+
+.circular-chart {
+  display: block;
+  margin: 0 auto;
+  max-width: 145px;
+  max-height: 145px;
+  width: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: #e2e8f0;
+  stroke-width: 3.4;
+}
+
+.circle-progress {
+  fill: none;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dasharray 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ct4ci-stroke { stroke: #059669; }
+.cci-stroke { stroke: #0284c7; }
+.sdi-stroke { stroke: #d97706; }
+
+.percentage-text {
+  fill: #0f172a;
+  font-size: 0.48em;
+  font-weight: 800;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.category-text {
+  fill: #64748b;
+  font-size: 0.22em;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+/* Concentric Multi-Ring Wheel */
+.concentric-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.concentric-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.concentric-chart {
+  display: block;
+  margin: 0 auto;
+  max-width: 250px;
+  max-height: 250px;
+  width: 100%;
+}
+
+.ring-bg {
+  fill: none;
+  stroke: #f1f5f9;
+  stroke-width: 8;
+}
+
+.ring-progress {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 100px 100px;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}

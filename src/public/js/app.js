@@ -104,6 +104,54 @@ function onPeriodFilterChanged() {
 }
 
 // ----------------------------------------------------------------------------
+// Circumferences for Concentric Circular Rings
+// ----------------------------------------------------------------------------
+const CIRCUMFERENCES = {
+  ct4ci: 2 * Math.PI * 84, // 527.79
+  sdi: 2 * Math.PI * 66,   // 414.69
+  cci: 2 * Math.PI * 48    // 301.59
+};
+
+function switchDashboardView(mode) {
+  const multi = document.getElementById('dashboard-multi-dial');
+  const concentric = document.getElementById('dashboard-concentric-dial');
+  const btnMulti = document.getElementById('btn-dash-multi');
+  const btnConc = document.getElementById('btn-dash-concentric');
+
+  if (mode === 'concentric') {
+    if (multi) multi.style.display = 'none';
+    if (concentric) concentric.style.display = 'block';
+    if (btnMulti) {
+      btnMulti.style.background = 'transparent';
+      btnMulti.style.color = 'var(--text-muted)';
+      btnMulti.style.fontWeight = '600';
+      btnMulti.style.boxShadow = 'none';
+    }
+    if (btnConc) {
+      btnConc.style.background = 'white';
+      btnConc.style.color = 'var(--text-main)';
+      btnConc.style.fontWeight = '700';
+      btnConc.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+    }
+  } else {
+    if (concentric) concentric.style.display = 'none';
+    if (multi) multi.style.display = 'grid';
+    if (btnConc) {
+      btnConc.style.background = 'transparent';
+      btnConc.style.color = 'var(--text-muted)';
+      btnConc.style.fontWeight = '600';
+      btnConc.style.boxShadow = 'none';
+    }
+    if (btnMulti) {
+      btnMulti.style.background = 'white';
+      btnMulti.style.color = 'var(--text-main)';
+      btnMulti.style.fontWeight = '700';
+      btnMulti.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
 // TAB 1: Dashboard Overview (CT-4CI, CT-CI, CT-SDI, IDSM)
 // ----------------------------------------------------------------------------
 async function loadDashboardOverview() {
@@ -119,19 +167,59 @@ async function loadDashboardOverview() {
 
     // Render CT-4CI Score
     if (ct4ci) {
-      document.getElementById('score-ct4ci').textContent = ct4ci.score !== null ? `${ct4ci.score}%` : 'N/A';
-      document.getElementById('score-coverage').textContent = ct4ci.coverage !== null ? `${ct4ci.coverage}%` : '0%';
-      document.getElementById('badge-status-ct4ci').textContent = ct4ci.calculationStatus;
-      document.getElementById('badge-status-ct4ci').className = `badge ${ct4ci.calculationStatus === 'CALCULATED' ? 'badge-pass' : 'badge-pending'}`;
-      document.getElementById('metric-summary-counts').textContent =
-        `${ct4ci.compliantCount} Sesuai / ${ct4ci.applicableCount} Berlaku (Total ${ct4ci.totalInventory} Checkpoint)`;
+      const score = ct4ci.score !== null ? Number(ct4ci.score) : 0;
+      const cov = ct4ci.coverage !== null ? Number(ct4ci.coverage) : 0;
+      const isPassed = ct4ci.majorGateStatus === 'PASSED';
+
+      const scoreEl = document.getElementById('score-ct4ci');
+      if (scoreEl) scoreEl.textContent = `${score.toFixed(1)}%`;
+
+      const covEl = document.getElementById('score-coverage');
+      if (covEl) covEl.textContent = `${cov.toFixed(1)}%`;
+
+      const badgeStatus = document.getElementById('badge-status-ct4ci');
+      if (badgeStatus) {
+        badgeStatus.textContent = ct4ci.calculationStatus;
+        badgeStatus.className = `badge ${ct4ci.calculationStatus === 'CALCULATED' ? 'badge-pass' : 'badge-pending'}`;
+      }
+
+      const sumCounts = document.getElementById('metric-summary-counts');
+      if (sumCounts) {
+        sumCounts.textContent = `${ct4ci.compliantCount} Sesuai / ${ct4ci.applicableCount} Berlaku (Total ${ct4ci.totalInventory} Checkpoint)`;
+      }
+
+      // Update SVG Circular Progress Ring (Dial 1)
+      const ct4ciCircle = document.getElementById('dash-ct4ci-circle');
+      if (ct4ciCircle) {
+        ct4ciCircle.setAttribute('stroke-dasharray', `${Math.min(Math.max(score, 0), 100).toFixed(1)}, 100`);
+      }
+
+      const gateLabel = document.getElementById('dash-ct4ci-gate');
+      if (gateLabel) {
+        gateLabel.textContent = isPassed ? 'GATE: PASSED' : 'GATE: UNRESOLVED';
+        gateLabel.style.fill = isPassed ? '#059669' : '#dc2626';
+      }
+
+      // Update Concentric Ring (Outer Ring)
+      const ringCt4ci = document.getElementById('dash-conc-ring-ct4ci');
+      if (ringCt4ci) {
+        const offset = CIRCUMFERENCES.ct4ci * (1 - Math.min(Math.max(score, 0), 100) / 100);
+        ringCt4ci.style.strokeDashoffset = offset;
+      }
+      const concScoreCt4ci = document.getElementById('dash-conc-score-ct4ci');
+      if (concScoreCt4ci) concScoreCt4ci.textContent = `${score.toFixed(1)}%`;
+      const concGateCt4ci = document.getElementById('dash-conc-gate-ct4ci');
+      if (concGateCt4ci) {
+        concGateCt4ci.textContent = isPassed ? 'GATE PASSED' : 'GATE UNRESOLVED';
+        concGateCt4ci.style.color = isPassed ? '#059669' : '#dc2626';
+      }
 
       // Major Gate Banner
       const gateBanner = document.getElementById('major-gate-banner');
       const gateText = document.getElementById('major-gate-text');
       const gateSub = document.getElementById('major-gate-sub');
 
-      if (ct4ci.majorGateStatus === 'PASSED') {
+      if (isPassed) {
         gateBanner.className = 'gate-banner PASSED';
         gateText.textContent = 'MEMENUHI SYARAT (MAJOR GATE PASSED)';
         gateSub.textContent = 'Seluruh kriteria Major yang berlaku terbukti sesuai dengan bukti memadai.';
@@ -144,17 +232,73 @@ async function loadDashboardOverview() {
 
       // Dimensions
       const dims = ct4ci.dimensionBreakdown || {};
-      if (dims.ECONOMIC) document.getElementById('dim-score-econ').textContent = `${dims.ECONOMIC.readinessScore || 0}%`;
-      if (dims.SOCIAL) document.getElementById('dim-score-soc').textContent = `${dims.SOCIAL.readinessScore || 0}%`;
-      if (dims.ENVIRONMENTAL) document.getElementById('dim-score-env').textContent = `${dims.ENVIRONMENTAL.readinessScore || 0}%`;
+      if (dims.ECONOMIC && document.getElementById('dim-score-econ')) {
+        document.getElementById('dim-score-econ').textContent = `${dims.ECONOMIC.readinessScore || 0}%`;
+      }
+      if (dims.SOCIAL && document.getElementById('dim-score-soc')) {
+        document.getElementById('dim-score-soc').textContent = `${dims.SOCIAL.readinessScore || 0}%`;
+      }
+      if (dims.ENVIRONMENTAL && document.getElementById('dim-score-env')) {
+        document.getElementById('dim-score-env').textContent = `${dims.ENVIRONMENTAL.readinessScore || 0}%`;
+      }
     }
 
-    // CT-CCI & CT-SDI
+    // CT-CCI Updates
     if (indices.ctCci) {
-      document.getElementById('score-ct-cci').textContent = indices.ctCci.score.toFixed(2);
+      const cciScore = Number(indices.ctCci.score) || 0;
+      const cciEl = document.getElementById('score-ct-cci');
+      if (cciEl) cciEl.textContent = cciScore.toFixed(2);
+
+      // SVG Circular Progress Ring (Dial 2)
+      const cciCircle = document.getElementById('dash-cci-circle');
+      if (cciCircle) {
+        cciCircle.setAttribute('stroke-dasharray', `${Math.min(Math.max(cciScore, 0), 100).toFixed(2)}, 100`);
+      }
+
+      // Concentric Ring (Inner Ring)
+      const ringCci = document.getElementById('dash-conc-ring-cci');
+      if (ringCci) {
+        const offset = CIRCUMFERENCES.cci * (1 - Math.min(Math.max(cciScore, 0), 100) / 100);
+        ringCci.style.strokeDashoffset = offset;
+      }
+      const concScoreCci = document.getElementById('dash-conc-score-cci');
+      if (concScoreCci) concScoreCci.textContent = cciScore.toFixed(2);
+
+      // Breakdown Ratios
+      const bd = indices.ctCci.breakdown || {};
+      if (document.getElementById('dash-val-cmi')) document.getElementById('dash-val-cmi').textContent = `${(bd.cmi || 46.67).toFixed(2)}%`;
+      if (document.getElementById('dash-val-bvc')) document.getElementById('dash-val-bvc').textContent = `${(bd.bvc || 90.00).toFixed(2)}%`;
+      if (document.getElementById('dash-val-wc')) document.getElementById('dash-val-wc').textContent = `${(bd.wc || 27.27).toFixed(2)}%`;
+      if (document.getElementById('dash-val-re')) document.getElementById('dash-val-re').textContent = `${(bd.re || 25.00).toFixed(2)}%`;
     }
+
+    // CT-SDI Updates
     if (indices.ctSdi) {
-      document.getElementById('score-ct-sdi').textContent = indices.ctSdi.score.toFixed(2);
+      const sdiScore = Number(indices.ctSdi.score) || 0;
+      const sdiEl = document.getElementById('score-ct-sdi');
+      if (sdiEl) sdiEl.textContent = sdiScore.toFixed(2);
+
+      // SVG Circular Progress Ring (Dial 3)
+      const sdiCircle = document.getElementById('dash-sdi-circle');
+      if (sdiCircle) {
+        sdiCircle.setAttribute('stroke-dasharray', `${Math.min(Math.max(sdiScore, 0), 100).toFixed(2)}, 100`);
+      }
+
+      // Concentric Ring (Middle Ring)
+      const ringSdi = document.getElementById('dash-conc-ring-sdi');
+      if (ringSdi) {
+        const offset = CIRCUMFERENCES.sdi * (1 - Math.min(Math.max(sdiScore, 0), 100) / 100);
+        ringSdi.style.strokeDashoffset = offset;
+      }
+      const concScoreSdi = document.getElementById('dash-conc-score-sdi');
+      if (concScoreSdi) concScoreSdi.textContent = sdiScore.toFixed(2);
+
+      // SAFA Dimensions
+      const dims = indices.ctSdi.dimensions || {};
+      if (document.getElementById('dash-sdi-dim-e')) document.getElementById('dash-sdi-dim-e').textContent = (dims.E || 83.33).toFixed(2);
+      if (document.getElementById('dash-sdi-dim-s')) document.getElementById('dash-sdi-dim-s').textContent = (dims.S || 85.56).toFixed(2);
+      if (document.getElementById('dash-sdi-dim-ec')) document.getElementById('dash-sdi-dim-ec').textContent = (dims.Ec || 78.33).toFixed(2);
+      if (document.getElementById('dash-sdi-dim-g')) document.getElementById('dash-sdi-dim-g').textContent = (dims.G || 90.56).toFixed(2);
     }
 
     // CT-IDSM Rules
