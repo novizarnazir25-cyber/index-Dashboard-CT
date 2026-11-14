@@ -40,6 +40,7 @@ model Organization {
   users               User[]
   lots                Lot[]
   assessments         Assessment[]
+  farmers             CtFarmer[]
 }
 
 model User {
@@ -56,6 +57,17 @@ model User {
   verifications  Verification[]
   safeguardsAudited SafeguardObservation[]
   evidenceVerified EvidenceRecord[]
+  recordedFarmers CtFarmer[]    @relation("FarmerRecordedBy")
+  recordedPractices CtPracticeRecord[] @relation("PracticeRecordedBy")
+  verifiedPractices CtPracticeRecord[] @relation("PracticeVerifiedBy")
+  conductedInspections CtIcsInspection[] @relation("InspectionConductedBy")
+  uploadedEvidences CtEvidenceItem[] @relation("EvidenceUploadedBy")
+  verifiedEvidences CtEvidenceItem[] @relation("EvidenceVerifiedBy")
+  approvedAssessments CheckpointAssessment[] @relation("AssessmentApplicabilityApprovedBy")
+  verifiedAssessments CheckpointAssessment[] @relation("AssessmentVerifiedBy")
+  calculatedSnapshots Ct4ciCalculationSnapshot[] @relation("SnapshotCalculatedBy")
+  reviewedCapas CapaRecord[]   @relation("CapaReviewedBy")
+  auditLogs     CtAuditTrail[] @relation("AuditTrailActor")
 }
 
 model Lot {
@@ -333,4 +345,364 @@ model CalculationSnapshot {
   assessment      Assessment               @relation(fields: [assessmentId], references: [assessmentId], onDelete: Cascade)
 
   @@map("cdl_calculation_snapshots")
+}
+
+// ----------------------------------------------------------------------------
+// CT-4CI, FARMER REGISTRATION, FARMS & PLOTS, CULTIVATION & ICS MODULES
+// ----------------------------------------------------------------------------
+
+model CtFarmer {
+  id                          String    @id @default(uuid())
+  farmerCode                  String    @unique
+  groupId                     String
+  fullName                    String
+  membershipStatus            String    @default("ACTIVE") // ACTIVE, INACTIVE, PENDING
+  joinedDate                  DateTime?
+  province                    String
+  district                    String
+  subDistrict                 String
+  village                     String
+  phone                       String?
+  farmRole                    String    @default("OWNER_OPERATOR")
+  smartphoneAccess            String    @default("YES") // YES, NO, SHARED
+  connectivityStatus          String    @default("GOOD") // GOOD, LIMITED, OFFLINE_ONLY
+  assistanceNeeded            Boolean   @default(false)
+  preferredConfirmationMethod String    @default("DIGITAL_APP") // DIGITAL_APP, ORAL_ASSISTED, PHYSICAL_SIGNATURE
+  dataConsentGiven            Boolean   @default(true)
+  dataConsentDate             DateTime  @default(now())
+  dataConsentMethod           String    @default("DIGITAL_APP")
+  recordedByOfficerId         String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  group                       Organization @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  recordedByOfficer           User?        @relation("FarmerRecordedBy", fields: [recordedByOfficerId], references: [id], onDelete: SetNull)
+  farms                       CtFarm[]
+  plots                       CtPlot[]
+  practiceRecords             CtPracticeRecord[]
+  inspections                 CtIcsInspection[]
+  evidences                   CtEvidenceItem[]
+
+  @@map("ct_farmers")
+}
+
+model CtFarm {
+  id          String   @id @default(uuid())
+  farmCode    String   @unique
+  farmerId    String
+  name        String
+  totalAreaHa Float    @default(0)
+  province    String
+  district    String
+  subDistrict String
+  village     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  farmer      CtFarmer @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  plots       CtPlot[]
+  inspections CtIcsInspection[]
+
+  @@map("ct_farms")
+}
+
+model CtPlot {
+  id                          String    @id @default(uuid())
+  plotCode                    String    @unique
+  farmId                      String
+  farmerId                    String
+  latitude                    Float?
+  longitude                   Float?
+  polygonGeoJson              String?
+  geodataMethod               String?   // GPS_HANDHELD, MOBILE_APP, SATELLITE_DIGITIZED, ESTIMATED
+  geodataAccuracyMeters       Float?
+  geodataOfficer              String?
+  geodataDate                 DateTime?
+  areaHa                      Float
+  areaUnit                    String    @default("HECTARE")
+  areaSource                  String    @default("GPS_SURVEY")
+  tenureStatus                String    @default("OWNED_CERTIFIED")
+  tenureDocumentRef           String?
+  coffeeSpecies               String    @default("ARABICA")
+  varieties                   String?
+  plantingYear                Int?
+  plantPopulation             Int?
+  shadeTreesDescription       String?
+  landSlopeCondition          String?
+  waterSourceDescription      String?
+  sensitiveAreaProximity      String?
+  estimatedAnnualProductionKg Float?
+  productForm                 String    @default("FRESH_CHERRY")
+  productionStatus            String    @default("MEASURED")
+  isDuplicateFlagged          Boolean   @default(false)
+  duplicateNotes              String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  farm                        CtFarm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmer                      CtFarmer  @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  practiceRecords             CtPracticeRecord[]
+  evidences                   CtEvidenceItem[]
+
+  @@map("ct_plots")
+}
+
+model CtPracticeRecord {
+  id                       String    @id @default(uuid())
+  farmerId                 String
+  plotId                   String?
+  category                 String    // SOIL_CROP, PEST_CHEMICAL, WATER_WASTE_ENV, LABOR_SAFETY, ECON_INST
+  observationDate          DateTime
+  periodId                 String
+  sourceInfo               String    @default("DIRECT_OBSERVATION")
+  recordedByUserId         String?
+  dataPayloadJson          String
+  farmerConfirmationStatus String    @default("PENDING") // PENDING, CONFIRMED, DISPUTED
+  confirmationMethod       String?
+  confirmationDate         DateTime?
+  confirmationNotes        String?
+  verificationStatus       String    @default("PENDING") // PENDING, VERIFIED, REJECTED
+  verifierUserId           String?
+  verificationNotes        String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  farmer                   CtFarmer  @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  plot                     CtPlot?   @relation(fields: [plotId], references: [id], onDelete: SetNull)
+  recordedByUser           User?     @relation("PracticeRecordedBy", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+  verifierUser             User?     @relation("PracticeVerifiedBy", fields: [verifierUserId], references: [id], onDelete: SetNull)
+  evidences                CtEvidenceItem[]
+
+  @@map("ct_practice_records")
+}
+
+model CtIcsInspection {
+  id                   String    @id @default(uuid())
+  inspectionCode       String    @unique
+  farmerId             String
+  farmId               String
+  plotIdsJson          String
+  inspectorUserId      String
+  inspectionDate       DateTime
+  reportingPeriod      String
+  visitType            String    @default("ROUTINE_ANNUAL")
+  findingsSummary      String?
+  farmerConfirmation   String    @default("CONFIRMED")
+  confirmationProofUri String?
+  status               String    @default("SUBMITTED")
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  farmer               CtFarmer  @relation(fields: [farmerId], references: [id], onDelete: Restrict)
+  farm                 CtFarm    @relation(fields: [farmId], references: [id], onDelete: Restrict)
+  inspectorUser        User      @relation("InspectionConductedBy", fields: [inspectorUserId], references: [id], onDelete: Restrict)
+  evidences            CtEvidenceItem[]
+
+  @@map("ct_ics_inspections")
+}
+
+model CheckpointRegister {
+  id                          String    @id @default(uuid())
+  checkpointCode              String    @unique // P001..P108, ME001..ME033, SP001..SP083
+  module                      String    @default("PRODUCER") // PRODUCER, MANAGING_ENTITY, SERVICE_PROVIDER
+  dimension                   String    // ECONOMIC, SOCIAL, ENVIRONMENTAL, GOVERNANCE
+  title                       String
+  officialRef                 String
+  sourceDoc                   String    @default("4C Code of Conduct v4.1")
+  sourceVersion               String    @default("v4.1")
+  sourceLocation              String?
+  isMajor                     Boolean   @default(false)
+  assessmentLevel             String    @default("LEVEL_1_ENTRY")
+  applicabilityRule           String    @default("ALL_PRODUCERS")
+  assessmentScope             String    @default("PRODUCER_WIDE")
+  fieldQuestionPrompt         String
+  requiredEvidenceDescription String
+  evidenceSufficiencyRule     String
+  scoringRule                 String
+  validationStatus            String    @default("VALIDATED") // VALIDATED, PENDING_SOURCE_VALIDATION
+  effectiveDate               DateTime  @default(now())
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+
+  mappings                    QuestionCheckpointMapping[]
+  assessments                 CheckpointAssessment[]
+  capas                       CapaRecord[]
+
+  @@map("ct_checkpoint_register")
+}
+
+model FieldQuestion {
+  id                   String    @id @default(uuid())
+  questionCode         String    @unique
+  category             String
+  questionText         String
+  questionType         String    @default("SINGLE_CHOICE")
+  optionsJson          String?
+  conditionalLogicJson String?
+  helpText             String?
+  createdAt            DateTime  @default(now())
+
+  mappings             QuestionCheckpointMapping[]
+
+  @@map("ct_field_questions")
+}
+
+model QuestionCheckpointMapping {
+  id               String             @id @default(uuid())
+  questionId       String
+  checkpointId     String
+  mappingNotes     String?
+  validationStatus String             @default("VALIDATED")
+
+  question         FieldQuestion      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  checkpoint       CheckpointRegister @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+
+  @@map("ct_question_mappings")
+}
+
+model CtEvidenceItem {
+  id                   String            @id @default(uuid())
+  evidenceCode         String            @unique
+  title                String
+  docType              String
+  fileUri              String
+  sha256Hash           String?
+  farmerId             String?
+  plotId               String?
+  practiceRecordId     String?
+  inspectionId         String?
+  checkpointIdsJson    String?
+  uploadedByUserId     String?
+  sufficiencyStatus    String            @default("PENDING_VERIFICATION")
+  verifierUserId       String?
+  verifierDecisionDate DateTime?
+  verifierNotes        String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  farmer               CtFarmer?         @relation(fields: [farmerId], references: [id], onDelete: SetNull)
+  plot                 CtPlot?           @relation(fields: [plotId], references: [id], onDelete: SetNull)
+  practiceRecord       CtPracticeRecord? @relation(fields: [practiceRecordId], references: [id], onDelete: SetNull)
+  inspection           CtIcsInspection?  @relation(fields: [inspectionId], references: [id], onDelete: SetNull)
+  uploadedByUser       User?             @relation("EvidenceUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  verifierUser         User?             @relation("EvidenceVerifiedBy", fields: [verifierUserId], references: [id], onDelete: SetNull)
+
+  @@map("ct_evidence_items")
+}
+
+model CheckpointAssessment {
+  id                      String             @id @default(uuid())
+  period                  String
+  scopeType               String             // PRODUCER, PLOT, GROUP
+  scopeId                 String
+  checkpointId            String
+  applicability           String             @default("APPLICABLE") // APPLICABLE, NOT_APPLICABLE, UNDECIDED
+  nonApplicabilityReason  String?
+  applicabilityApprovedBy String?
+  evidenceSufficiency     String             @default("NOT_AVAILABLE") // NOT_AVAILABLE, PENDING_VERIFICATION, INSUFFICIENT, SUFFICIENT, NEEDS_REVIEW
+  linkedEvidenceIdsJson   String?
+  complianceResult        String             @default("UNDETERMINED") // COMPLIANT, NON_COMPLIANT, UNDETERMINED
+  evaluationNotes         String?
+  verifierUserId          String?
+  verifiedAt              DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  checkpoint              CheckpointRegister @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
+  approverUser            User?              @relation("AssessmentApplicabilityApprovedBy", fields: [applicabilityApprovedBy], references: [id], onDelete: SetNull)
+  verifierUser            User?              @relation("AssessmentVerifiedBy", fields: [verifierUserId], references: [id], onDelete: SetNull)
+
+  @@map("ct_checkpoint_assessments")
+}
+
+model Ct4ciCalculationSnapshot {
+  id                                   String    @id @default(uuid())
+  period                               String
+  scopeType                            String
+  scopeId                              String
+  registerVersion                      String    @default("4C-v4.1")
+  totalInventory                       Int
+  applicableCount                      Int
+  approvedNotApplicableCount           Int
+  undecidedApplicabilityCount          Int
+  sufficientEvidenceCount              Int
+  compliantWithSufficientEvidenceCount Int
+  nonCompliantWithSufficientEvidenceCount Int
+  insufficientEvidenceCount            Int
+  ct4ciScore                           Float?
+  evidenceCoveragePct                  Float?
+  calculationStatus                    String    @default("CALCULATED")
+  cannotCalculateReason                String?
+  majorGateStatus                      String    @default("PASSED")
+  majorNonCompliantCount               Int       @default(0)
+  majorInsufficientCount               Int       @default(0)
+  majorUndecidedCount                  Int       @default(0)
+  dimensionBreakdownJson               String
+  idsmRulesSummaryJson                 String
+  isSampleSimulation                   Boolean   @default(false)
+  calculatedByUserId                   String?
+  calculatedAt                         DateTime  @default(now())
+
+  calculatedByUser                     User?     @relation("SnapshotCalculatedBy", fields: [calculatedByUserId], references: [id], onDelete: SetNull)
+
+  @@map("ct_4ci_snapshots")
+}
+
+model CapaRecord {
+  id                      String             @id @default(uuid())
+  capaCode                String             @unique
+  findingTitle            String
+  checkpointId            String
+  scopeType               String
+  scopeId                 String
+  issueType               String             @default("MAJOR_NON_COMPLIANT")
+  rootCauseAnalysis       String?
+  correctiveActionPlan    String
+  responsiblePerson       String
+  deadlineDate            DateTime
+  estimatedCostIdr        Float?             @default(0)
+  actualCostIdr           Float?             @default(0)
+  completionProofRef      String?
+  status                  String             @default("OPEN")
+  verifierUserId          String?
+  verifierClosureDecision String?
+  closedAt                DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  checkpoint              CheckpointRegister @relation(fields: [checkpointId], references: [id], onDelete: Restrict)
+  verifierUser            User?              @relation("CapaReviewedBy", fields: [verifierUserId], references: [id], onDelete: SetNull)
+
+  @@map("ct_capa_records")
+}
+
+model CtAuditTrail {
+  id           String    @id @default(uuid())
+  entityType   String
+  entityId     String
+  actionType   String
+  oldValueJson String?
+  newValueJson String?
+  actorUserId  String?
+  actorRole    String?
+  changeReason String?
+  timestamp    DateTime  @default(now())
+
+  actorUser    User?     @relation("AuditTrailActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@map("ct_audit_trail")
+}
+
+model OfflineDraft {
+  id             String    @id @default(uuid())
+  clientId       String
+  idempotencyKey String    @unique
+  entityType     String
+  payloadJson    String
+  syncStatus     String    @default("PENDING")
+  conflictNotes  String?
+  createdAt      DateTime  @default(now())
+  syncedAt       DateTime?
+
+  @@map("ct_offline_drafts")
 }
