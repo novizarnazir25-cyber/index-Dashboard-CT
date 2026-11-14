@@ -168,4 +168,44 @@ describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
     assert.ok(res.body.includes('farmerCode,fullName'));
     assert.ok(res.body.includes('Syamsul Arifin'));
   });
+
+  it('8. GET /api/stakeholders returns all 11 synchronized stakeholders and supply chain flow', async () => {
+    const res = await makeRequest('/api/stakeholders');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.totalStakeholders, 11);
+    assert.strictEqual(res.body.stakeholders.length, 11);
+    
+    // Check specific required stakeholders
+    const roles = res.body.stakeholders.map(s => s.roleCode);
+    assert.ok(roles.includes('FARMER'));
+    assert.ok(roles.includes('FARMER_GROUP'));
+    assert.ok(roles.includes('PROCESSOR'));
+    assert.ok(roles.includes('WAREHOUSE'));
+    assert.ok(roles.includes('ROASTERY'));
+    assert.ok(roles.includes('COFFEE_SHOP'));
+    assert.ok(roles.includes('BUYER'));
+    assert.ok(roles.includes('ICS_VERIFIER_FARMER'));
+    assert.ok(roles.includes('ICS_VERIFIER_PROCESSOR'));
+    assert.ok(roles.includes('VERIFIER_WAREHOUSE'));
+    assert.ok(roles.includes('VERIFIER_ROASTERY'));
+
+    // Check paired verifier relations
+    const farmer = res.body.stakeholders.find(s => s.roleCode === 'FARMER');
+    assert.strictEqual(farmer.pairedVerifierRole, 'ICS_VERIFIER_FARMER');
+
+    const processor = res.body.stakeholders.find(s => s.roleCode === 'PROCESSOR');
+    assert.strictEqual(processor.pairedVerifierRole, 'ICS_VERIFIER_PROCESSOR');
+
+    const warehouse = res.body.stakeholders.find(s => s.roleCode === 'WAREHOUSE');
+    assert.strictEqual(warehouse.pairedVerifierRole, 'VERIFIER_WAREHOUSE');
+
+    const roastery = res.body.stakeholders.find(s => s.roleCode === 'ROASTERY');
+    assert.strictEqual(roastery.pairedVerifierRole, 'VERIFIER_ROASTERY');
+
+    // Check supply chain steps
+    assert.strictEqual(res.body.supplyChainFlow.length, 6);
+    assert.strictEqual(res.body.supplyChainFlow[0].from, 'FARMER');
+    assert.strictEqual(res.body.supplyChainFlow[5].to, 'BUYER');
+  });
 });

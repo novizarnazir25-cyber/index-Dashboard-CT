@@ -6,9 +6,13 @@
 
 export const SystemBoundaryStage = {
   FARMER: 'FARMER',
+  FARMER_GROUP: 'FARMER_GROUP',
   PROCESSOR: 'PROCESSOR',
-  WAREHOUSE_EXPORTER: 'WAREHOUSE_EXPORTER',
-  ROASTERY: 'ROASTERY'
+  WAREHOUSE: 'WAREHOUSE',
+  WAREHOUSE_EXPORTER: 'WAREHOUSE_EXPORTER', // Alias backward compatibility
+  ROASTERY: 'ROASTERY',
+  COFFEE_SHOP: 'COFFEE_SHOP',
+  BUYER: 'BUYER'
 };
 
 export const DataQualitySourceType = {

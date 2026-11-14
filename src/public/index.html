@@ -17,13 +17,27 @@
       <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 6px;">
           <span style="font-size: 11px; opacity: 0.9;">Peran Aktif:</span>
-          <select id="user-role-select" onchange="switchActorRole(this.value)" style="background: transparent; color: white; border: none; font-weight: 700; font-size: 11px; outline: none; cursor: pointer;">
-            <option value="VERIFIER" style="color: black;">Verifier / Auditor ICS</option>
-            <option value="ICS_OPERATOR" style="color: black;">Operator ICS Kelompok</option>
-            <option value="FARMER" style="color: black;">Petani Kopi</option>
-            <option value="MANAGER" style="color: black;">Manajer Rantai Pasok</option>
-            <option value="METHODOLOGY_ADMIN" style="color: black;">Admin Metodologi</option>
-            <option value="REVIEWER" style="color: black;">Reviewer Independen</option>
+          <select id="user-role-select" onchange="switchActorRole(this.value)" style="background: rgba(0,0,0,0.35); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 3px 6px; font-weight: 700; font-size: 11px; outline: none; cursor: pointer;">
+            <optgroup label="── 1. Pelaku Rantai Pasok (Supply Chain Operators) ──" style="color: black; font-weight: bold;">
+              <option value="FARMER" style="color: black;">👨‍🌾 1. Petani (Farmer)</option>
+              <option value="FARMER_GROUP" style="color: black;">🏛️ 2. Kelompok Tani (Managing Entity)</option>
+              <option value="PROCESSOR" style="color: black;">⚙️ 3. Pengolah (Processor / Wet & Dry Mill)</option>
+              <option value="WAREHOUSE" style="color: black;">🏬 4. Gudang (Warehouse & Storage QA)</option>
+              <option value="ROASTERY" style="color: black;">🔥 5. Roasting (Roastery / Penyangrai)</option>
+              <option value="COFFEE_SHOP" style="color: black;">☕ 6. Coffee Shop (Café & Retail)</option>
+              <option value="BUYER" style="color: black;">💼 7. Buyer (Pembeli / Offtaker / Eksportir)</option>
+            </optgroup>
+            <optgroup label="── 2. Pelaku Verifikasi & Pengawasan (Verification & ICS) ──" style="color: black; font-weight: bold;">
+              <option value="ICS_VERIFIER_FARMER" selected style="color: black;">🔍 8. Verifikator / ICS untuk Petani</option>
+              <option value="ICS_VERIFIER_PROCESSOR" style="color: black;">🔬 9. ICS untuk Pengolah</option>
+              <option value="VERIFIER_WAREHOUSE" style="color: black;">📦 10. Verifikator Gudang</option>
+              <option value="VERIFIER_ROASTERY" style="color: black;">🏷️ 11. Verifikator Roastery</option>
+            </optgroup>
+            <optgroup label="── 3. Tata Kelola & Administrasi ──" style="color: black; font-weight: bold;">
+              <option value="MANAGER" style="color: black;">👑 Project Manager</option>
+              <option value="METHODOLOGY_ADMIN" style="color: black;">📖 Admin Metodologi</option>
+              <option value="REVIEWER" style="color: black;">⚖️ Reviewer Independen</option>
+            </optgroup>
           </select>
         </div>
         <div class="badge-version">CT-4CI v1.0 | CT-CCI-Lite | CT-SDI-Lite</div>
@@ -99,9 +113,10 @@
       </div>
     </div>
 
-    <!-- Main Navigation Menu (11 Menus) -->
+    <!-- Main Navigation Menu (12 Menus) -->
     <nav class="main-nav">
       <button class="nav-tab active" onclick="switchTab('dashboard-indices')">📈 Dashboard Indeks</button>
+      <button class="nav-tab" onclick="switchTab('stakeholders-matrix')">👥 Stakeholders & Alur ICS</button>
       <button class="nav-tab" onclick="switchTab('kelompok-tani')">🏛️ Kelompok Tani</button>
       <button class="nav-tab" onclick="switchTab('petani')">👨‍🌾 Petani</button>
       <button class="nav-tab" onclick="switchTab('farm-plot')">📍 Farm & Plot</button>
@@ -684,6 +699,220 @@
             Sesuai instruksi audit, P013 (Analisis Biaya), P014 (Transparansi Potongan & Premi), dan P015 (Akses Pembiayaan) ditandai dengan status <em>"Menunggu validasi sumber"</em> sampai dokumen revisi 4C v4.1 diverifikasi secara definitif.
           </p>
         </div>
+      </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 12: STAKEHOLDERS & ALUR VERIFIKASI ICS                            -->
+    <!-- ===================================================================== -->
+    <div id="tab-stakeholders-matrix" class="tab-panel">
+      <!-- Overview Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>👥 Penyelarasan 11 Stakeholder CircularTrace & Alur Verifikasi Rantai Pasok</span>
+          <span class="badge badge-pass">TERINTEGRASI PENUH</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;">
+          Platform menyelaraskan <strong>7 Pelaku Rantai Pasok Kopi</strong> (dari kebun hingga pembeli akhir) dengan <strong>4 Otoritas Verifikasi & ICS Spesifik</strong>. Setiap pelaku memiliki batas sistem (<em>system boundary</em>), indikator yang wajib dipenuhi, dan verifikator independen tersendiri agar integritas data terjamin dan bebas konflik kepentingan.
+        </p>
+
+        <!-- Visual Flow of Coffee Supply Chain & Verification -->
+        <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 20px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 14px; letter-spacing: 0.5px;">
+            ☕ Alur Keterlacakan 6 Tahap Rantai Pasok & Otoritas Verifikasi:
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; position: relative;">
+            <!-- Step 1: Petani -->
+            <div style="background: white; border: 1px solid #a7f3d0; border-top: 4px solid #059669; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #059669;">TAHAP 1</span>
+                <span style="font-size: 10px; background: #ecfdf5; color: #065f46; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Kebun</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">👨‍🌾 1. Petani</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Budidaya, plot GPS, pupuk organik hayati, logbook panen ceri.</div>
+              <div style="font-size: 10px; background: #f0fdf4; border: 1px dashed #86efac; padding: 6px; border-radius: 4px; color: #166534;">
+                <strong>🔍 Verifikator:</strong><br>Verifikator / ICS untuk Petani
+              </div>
+            </div>
+
+            <!-- Step 2: Kelompok Tani -->
+            <div style="background: white; border: 1px solid #a7f3d0; border-top: 4px solid #10b981; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #10b981;">TAHAP 2</span>
+                <span style="font-size: 10px; background: #ecfdf5; color: #065f46; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Titik Kumpul</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">🏛️ 2. Kelompok Tani</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Pencatatan timbang ceri, ME 33 CP, biaya jasa Rp 500/kg.</div>
+              <div style="font-size: 10px; background: #f0fdf4; border: 1px dashed #86efac; padding: 6px; border-radius: 4px; color: #166534;">
+                <strong>🔍 Verifikator:</strong><br>Verifikator / ICS untuk Petani
+              </div>
+            </div>
+
+            <!-- Step 3: Pengolah -->
+            <div style="background: white; border: 1px solid #7dd3fc; border-top: 4px solid #0284c7; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #0284c7;">TAHAP 3</span>
+                <span style="font-size: 10px; background: #f0f9ff; color: #0369a1; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Wet & Dry Mill</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">⚙️ 3. Pengolah</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Neraca cascara (BVC), air resirkulasi (WC), solar dome (RE).</div>
+              <div style="font-size: 10px; background: #f0f9ff; border: 1px dashed #7dd3fc; padding: 6px; border-radius: 4px; color: #075985;">
+                <strong>🔬 Verifikator:</strong><br>ICS untuk Pengolah
+              </div>
+            </div>
+
+            <!-- Step 4: Gudang -->
+            <div style="background: white; border: 1px solid #cbd5e1; border-top: 4px solid #475569; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #475569;">TAHAP 4</span>
+                <span style="font-size: 10px; background: #f1f5f9; color: #334155; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Transit QA</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">🏬 4. Gudang</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Uji kadar air &lt;12.5%, defect, cupping SCAA, karung ekspor goni.</div>
+              <div style="font-size: 10px; background: #f8fafc; border: 1px dashed #94a3b8; padding: 6px; border-radius: 4px; color: #334155;">
+                <strong>📦 Verifikator:</strong><br>Verifikator Gudang
+              </div>
+            </div>
+
+            <!-- Step 5: Roasting -->
+            <div style="background: white; border: 1px solid #fde68a; border-top: 4px solid #d97706; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #d97706;">TAHAP 5</span>
+                <span style="font-size: 10px; background: #fffbeb; color: #92400e; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Penyangrai</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">🔥 5. Roasting</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Yield sangrai, kWh energi, pemanfaatan chaff kulit ari silverskin.</div>
+              <div style="font-size: 10px; background: #fffbeb; border: 1px dashed #fcd34d; padding: 6px; border-radius: 4px; color: #92400e;">
+                <strong>🏷️ Verifikator:</strong><br>Verifikator Roastery
+              </div>
+            </div>
+
+            <!-- Step 6: Coffee Shop & Buyer -->
+            <div style="background: white; border: 1px solid #e2e8f0; border-top: 4px solid #8b5cf6; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #8b5cf6;">TAHAP 6 &amp; 7</span>
+                <span style="font-size: 10px; background: #f5f3ff; color: #6d28d9; padding: 1px 6px; border-radius: 4px; font-weight: 700;">Hilir &amp; Pasar</span>
+              </div>
+              <strong style="font-size: 13px; display: block; margin-bottom: 4px;">☕ Café &amp; 💼 Buyer</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Ampas kopi SCG ke kompos, Paspor Digital QR, EUDR Due Diligence.</div>
+              <div style="font-size: 10px; background: #faf5ff; border: 1px dashed #c4b5fd; padding: 6px; border-radius: 4px; color: #5b21b6;">
+                <strong>🛡️ Verifikasi:</strong><br>Audit Ritel &amp; Digital Passport
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Verification Axes Grid -->
+        <div style="margin-bottom: 24px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; margin-bottom: 12px; letter-spacing: 0.5px;">
+            🛡️ 4 Sumbu Verifikasi Independen (Pairing Operator ↔ Verifikator):
+          </div>
+          <div class="grid-2">
+            <!-- Axis 1 -->
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #166534; font-size: 13px;">Sumbu 1: Budidaya &amp; Titik Kumpul</strong>
+                <span class="badge badge-pass">P001–P108 + ME33</span>
+              </div>
+              <div style="font-size: 12px; margin-bottom: 6px;">
+                <strong>Pelaku Diawasi:</strong> 👨‍🌾 Petani &amp; 🏛️ Kelompok Tani (Managing Entity)
+              </div>
+              <div style="font-size: 12px; margin-bottom: 8px;">
+                <strong>Otoritas Verifikasi:</strong> 🔍 <strong>Verifikator / ICS untuk Petani</strong>
+              </div>
+              <div style="font-size: 11px; color: #166534; line-height: 1.4;">
+                • Menginspeksi kebun &amp; plot GPS, bebas deforestasi (P070), bebas pestisida dilarang (P075), verifikasi kecukupan bukti 108 checkpoint Producer, dan penutupan CAPA petani.
+              </div>
+            </div>
+
+            <!-- Axis 2 -->
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #075985; font-size: 13px;">Sumbu 2: Pengolahan Basah &amp; Kering</strong>
+                <span class="badge" style="background: #0284c7; color: white;">CT-CCI + SP83</span>
+              </div>
+              <div style="font-size: 12px; margin-bottom: 6px;">
+                <strong>Pelaku Diawasi:</strong> ⚙️ Pengolah (Processing Facility / Wet &amp; Dry Mill)
+              </div>
+              <div style="font-size: 12px; margin-bottom: 8px;">
+                <strong>Otoritas Verifikasi:</strong> 🔬 <strong>ICS untuk Pengolah</strong>
+              </div>
+              <div style="font-size: 11px; color: #075985; line-height: 1.4;">
+                • Memverifikasi neraca massa cascara (BVC), tanggal &amp; bukti timbang penggunaan aktual pupuk/pakan, kalibrasi meteran air resirkulasi (WC), dan energi solar dome (RE).
+              </div>
+            </div>
+
+            <!-- Axis 3 -->
+            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #334155; font-size: 13px;">Sumbu 3: Penyimpanan Gudang &amp; Ekspor</strong>
+                <span class="badge" style="background: #475569; color: white;">QA Mutu + CDL</span>
+              </div>
+              <div style="font-size: 12px; margin-bottom: 6px;">
+                <strong>Pelaku Diawasi:</strong> 🏬 Gudang (Warehouse &amp; Transit Storage)
+              </div>
+              <div style="font-size: 12px; margin-bottom: 8px;">
+                <strong>Otoritas Verifikasi:</strong> 📦 <strong>Verifikator Gudang</strong>
+              </div>
+              <div style="font-size: 11px; color: #334155; line-height: 1.4;">
+                • Menguji kalibrasi moisture tester green bean (&lt;12.5%), sanitasi gudang bebas bahan kimia beracun, sertifikat karung goni/GrainPro sirkular, dan BAST lot keluar-masuk.
+              </div>
+            </div>
+
+            <!-- Axis 4 -->
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #92400e; font-size: 13px;">Sumbu 4: Penyangraian &amp; Ritel Café</strong>
+                <span class="badge" style="background: #d97706; color: white;">BVC Chaff + SCG</span>
+              </div>
+              <div style="font-size: 12px; margin-bottom: 6px;">
+                <strong>Pelaku Diawasi:</strong> 🔥 Roasting (Roastery) &amp; ☕ Coffee Shop (Café Ritel)
+              </div>
+              <div style="font-size: 12px; margin-bottom: 8px;">
+                <strong>Otoritas Verifikasi:</strong> 🏷️ <strong>Verifikator Roastery</strong>
+              </div>
+              <div style="font-size: 11px; color: #92400e; line-height: 1.4;">
+                • Mengaudit konsumsi energi sangrai (kWh eq), penyaluran sampingan kulit ari (chaff silverskin) ke briket/kompos, penanganan ampas kopi café (SCG), dan QR Paspor Digital.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Synchronized Stakeholders Full Table Container -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px;">
+            📋 Tabel Direktori Lengkap 11 Stakeholder:
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="loadStakeholdersMatrix()">
+            🔄 Segarkan Matriks
+          </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="table-custom" id="stakeholders-matrix-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">No</th>
+                <th>Stakeholder &amp; Peran</th>
+                <th>Kategori</th>
+                <th>Tahap Rantai Pasok</th>
+                <th>Indeks &amp; Checkpoint Terkait</th>
+                <th>Pasangan Verifikator</th>
+                <th>Aktor / Fasilitas Contoh</th>
+                <th style="text-align: center; width: 130px;">Aksi Cepat</th>
+              </tr>
+            </thead>
+            <tbody id="stakeholders-table-body">
+              <tr>
+                <td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">
+                  Memuat data matriks stakeholder...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
 

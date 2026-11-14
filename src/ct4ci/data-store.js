@@ -16,7 +16,8 @@ import {
   ComplianceResult,
   PracticeCategory,
   FarmerConfirmationStatus,
-  ConfirmationMethod
+  ConfirmationMethod,
+  SYNCHRONIZED_STAKEHOLDERS
 } from './types.js';
 
 export class CtDataStore {
@@ -25,6 +26,7 @@ export class CtDataStore {
     this.farmers = new Map();
     this.farms = new Map();
     this.plots = new Map();
+    this.facilities = new Map();
     this.practices = new Map();
     this.inspections = new Map();
     this.evidences = new Map();
@@ -40,15 +42,96 @@ export class CtDataStore {
 
   seedDefaultData() {
     // ------------------------------------------------------------------------
-    // 1. Users & Roles
+    // 1. Users for All 11 Synchronized Stakeholders & Admin
     // ------------------------------------------------------------------------
     const defaultUsers = [
+      // 1. Petani
+      { id: 'USR-FAR-01', name: 'Pak Syamsul Arifin', email: 'syamsul@solok.id', role: UserRole.FARMER, title: 'Petani Kopi Bukit Gompong', orgId: 'ORG-SOLOK-RADJO' },
+      // 2. Kelompok Tani
+      { id: 'USR-GROUP-01', name: 'Alfadhil', email: 'alfadhil@solokradjo.id', role: UserRole.FARMER_GROUP, title: 'Ketua Koperasi Solok Radjo', orgId: 'ORG-SOLOK-RADJO' },
+      // 3. Pengolah
+      { id: 'USR-PROC-01', name: 'Rahmat Hidayat', email: 'processing@solokradjo.id', role: UserRole.PROCESSOR, title: 'Kepala Unit Pengolahan Basah & Kering', orgId: 'ORG-SOLOK-RADJO' },
+      // 4. Gudang
+      { id: 'USR-WH-01', name: 'Dedi Kurniawan', email: 'warehouse@padangcoffee.id', role: UserRole.WAREHOUSE, title: 'Kepala Gudang Transit & Ekspor Padang', orgId: 'FAC-WH-01' },
+      // 5. Roasting
+      { id: 'USR-ROAST-01', name: 'Ari Lesmana', email: 'roaster@nusantaracoffee.id', role: UserRole.ROASTERY, title: 'Master Roaster Roastery Nusantara', orgId: 'FAC-ROAST-01' },
+      // 6. Coffee Shop
+      { id: 'USR-CAFE-01', name: 'Sarah Anindita', email: 'sarah@kopikita.id', role: UserRole.COFFEE_SHOP, title: 'Owner & Barista Kopi Kita Artisanal', orgId: 'FAC-CAFE-01' },
+      // 7. Buyer
+      { id: 'USR-BUYER-01', name: 'Marcus Weber', email: 'm.weber@globalcoffeetrade.com', role: UserRole.BUYER, title: 'Head of Green Coffee Sourcing & EUDR Offtaker', orgId: 'BUYER-01' },
+
+      // 8. Verifikator / ICS untuk Petani
+      { id: 'USR-ICS-FAR', name: 'Andi Saputra', email: 'ics.farmer@solokradjo.id', role: UserRole.ICS_VERIFIER_FARMER, title: 'Lead Field Inspector / Verifikator Petani', orgId: 'ORG-SOLOK-RADJO' },
+      // 9. ICS untuk Pengolah
+      { id: 'USR-ICS-PROC', name: 'Ir. Budi Santoso', email: 'ics.processor@circulartrace.id', role: UserRole.ICS_VERIFIER_PROCESSOR, title: 'Inspektur ICS Pengolahan & Neraca Biomassa', orgId: 'ORG-SOLOK-RADJO' },
+      // 10. Verifikator Gudang
+      { id: 'USR-VER-WH', name: 'Maya Pertiwi, S.T.', email: 'verifier.warehouse@circulartrace.id', role: UserRole.VERIFIER_WAREHOUSE, title: 'Auditor Mutu & Keterlacakan Gudang', orgId: 'FAC-WH-01' },
+      // 11. Verifikator Roastery
+      { id: 'USR-VER-ROAST', name: 'Hendra Wijaya', email: 'verifier.roastery@circulartrace.id', role: UserRole.VERIFIER_ROASTERY, title: 'Auditor Fasilitas Roastery & K3', orgId: 'FAC-ROAST-01' },
+
+      // Backward Compatibility & Administration
       { id: 'USR-OP-01', name: 'Andi Saputra (Operator ICS)', email: 'ics.andi@solokradjo.id', role: UserRole.ICS_OPERATOR, orgId: 'ORG-SOLOK-RADJO' },
       { id: 'USR-VER-01', name: 'Dr. Hendra Gunawan (Lead Verifier)', email: 'verifier@circulartrace.id', role: UserRole.VERIFIER, orgId: 'ORG-SOLOK-RADJO' },
-      { id: 'USR-MGR-01', name: 'Prof. Novizar Nazir (Project Manager)', email: 'novizar@circulartrace.id', role: UserRole.MANAGER, orgId: 'ORG-SOLOK-RADJO' },
-      { id: 'USR-FAR-01', name: 'Pak Syamsul Arifin (Petani)', email: 'syamsul@solok.id', role: UserRole.FARMER, orgId: 'ORG-SOLOK-RADJO' }
+      { id: 'USR-MGR-01', name: 'Prof. Novizar Nazir (Project Director)', email: 'novizar@circulartrace.id', role: UserRole.MANAGER, orgId: 'ORG-SOLOK-RADJO' },
+      { id: 'USR-ADMIN-01', name: 'Administrator Metodologi', email: 'admin@circulartrace.id', role: UserRole.METHODOLOGY_ADMIN, orgId: 'ORG-SOLOK-RADJO' }
     ];
     defaultUsers.forEach(u => this.users.set(u.id, u));
+
+    // ------------------------------------------------------------------------
+    // 2. Supply Chain Facilities (Processing, Warehouse, Roastery, Café, Buyer)
+    // ------------------------------------------------------------------------
+    const defaultFacilities = [
+      {
+        id: 'FAC-PROC-01',
+        name: 'Unit Pengolahan Basah & Kering Solok Radjo',
+        stage: 'PROCESSOR',
+        type: 'PROCESSING_FACILITY',
+        location: 'Aie Dingin, Lembah Gumanti, Solok',
+        capacityKgPerDay: 5000,
+        methods: ['FULL_WASHED', 'NATURAL', 'HONEY', 'WET_HULLED'],
+        hasSolarDome: true,
+        wasteWaterTreatment: 'BIO_FILTER_AND_AERATION'
+      },
+      {
+        id: 'FAC-WH-01',
+        name: 'Gudang Transit & QA Ekspor Teluk Bayur',
+        stage: 'WAREHOUSE',
+        type: 'STORAGE_WAREHOUSE',
+        location: 'Kawasan Pelabuhan Teluk Bayur, Padang',
+        storageCapacityTons: 200,
+        tempControl: 'AIR_VENTILATED_CONTROLLED',
+        palletStandard: 'FUMIGATED_ISPM15'
+      },
+      {
+        id: 'FAC-ROAST-01',
+        name: 'Roastery Kopi Nusantara Padang',
+        stage: 'ROASTERY',
+        type: 'ROASTING_FACILITY',
+        location: 'Jl. Khatib Sulaiman No. 45, Padang',
+        roasterCapacityKg: 15,
+        energySource: 'LPG_AND_SOLAR_PV',
+        chaffHandling: 'CYCLONE_COLLECTOR_TO_ORGANIC_BRIQUETTES'
+      },
+      {
+        id: 'FAC-CAFE-01',
+        name: 'Kopi Kita Artisanal Cafe',
+        stage: 'COFFEE_SHOP',
+        type: 'CAFE_RETAIL',
+        location: 'Jl. Rasuna Said, Padang',
+        scgRecoveryProgram: 'DAILY_COMPOST_EXCHANGE',
+        digitalPassportDisplay: 'QR_ON_MENU_AND_POUCH'
+      },
+      {
+        id: 'BUYER-01',
+        name: 'PT Global Coffee Traders & Offtakers',
+        stage: 'BUYER',
+        type: 'COMMERCIAL_EXPORTER',
+        location: 'Jakarta & Amsterdam',
+        eudrComplianceStatus: 'VERIFIED_DUE_DILIGENCE',
+        traceabilityPlatform: 'CIRCULARTRACE_CDL'
+      }
+    ];
+    defaultFacilities.forEach(f => this.facilities.set(f.id, f));
 
     // ------------------------------------------------------------------------
     // 2. Farmer Groups (Organizations)
@@ -672,6 +755,24 @@ export class CtDataStore {
       id: `AUDIT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toISOString(),
       ...entry
+    });
+  }
+
+  /**
+   * Get all 11 synchronized stakeholders with assigned users and facilities
+   */
+  getStakeholdersMatrix() {
+    return SYNCHRONIZED_STAKEHOLDERS.map(s => {
+      // Find assigned default user
+      const user = Array.from(this.users.values()).find(u => u.role === s.roleCode);
+      // Find assigned facility if applicable
+      const facility = Array.from(this.facilities.values()).find(f => f.stage === s.roleCode);
+
+      return {
+        ...s,
+        assignedUser: user ? { id: user.id, name: user.name, title: user.title, email: user.email } : null,
+        assignedFacility: facility ? { id: facility.id, name: facility.name, location: facility.location } : null
+      };
     });
   }
 }

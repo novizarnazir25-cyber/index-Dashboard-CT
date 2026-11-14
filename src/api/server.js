@@ -159,6 +159,89 @@ const server = http.createServer(async (req, res) => {
     // NEW CT-4CI, FARMER, PLOT, PRACTICE, INSPECTION & CAPA ENDPOINTS
     // =========================================================================
 
+    // 0. Synchronized Stakeholders & Supply Chain Flow (11 Stakeholders)
+    if (pathname === '/api/stakeholders' && req.method === 'GET') {
+      const matrix = globalDataStore.getStakeholdersMatrix();
+      const supplyChainFlow = [
+        {
+          step: 1,
+          from: 'FARMER',
+          to: 'FARMER_GROUP',
+          title: 'Kebun ke Titik Kumpul Ceri',
+          action: 'Penyerahan ceri merah panen di titik kumpul kolektif kelompok tani',
+          verifierRole: 'ICS_VERIFIER_FARMER',
+          verifierName: 'Verifikator / ICS untuk Petani',
+          checkpoints: 'P001–P108 (108 CP Producer)',
+          relatedIndices: 'CT-4CI (Kesiapan 4C) & CMI (Pupuk Hayati)'
+        },
+        {
+          step: 2,
+          from: 'FARMER_GROUP',
+          to: 'PROCESSOR',
+          title: 'Titik Kumpul ke Unit Pengolahan Basah',
+          action: 'Pengiriman ceri kopi terkonsolidasi dengan penimbangan dan jasa Rp 500/kg',
+          verifierRole: 'ICS_VERIFIER_FARMER',
+          verifierName: 'Verifikator / ICS untuk Petani',
+          checkpoints: 'ME001–ME033 (33 CP Managing Entity)',
+          relatedIndices: 'CT-4CI & Transparansi Biaya Kelompok'
+        },
+        {
+          step: 3,
+          from: 'PROCESSOR',
+          to: 'WAREHOUSE',
+          title: 'Pengolahan Ceri ke Gudang Penyimpanan',
+          action: 'Pulping, fermentasi, pengeringan solar dome, dan pemanfaatan biomassa cascara',
+          verifierRole: 'ICS_VERIFIER_PROCESSOR',
+          verifierName: 'ICS untuk Pengolah',
+          checkpoints: 'SP001–SP083 (83 CP Service Provider)',
+          relatedIndices: 'CT-CCI (BVC 45%, WC 20%, RE 15%) & CT-SDI (E1–E3)'
+        },
+        {
+          step: 4,
+          from: 'WAREHOUSE',
+          to: 'ROASTERY',
+          title: 'Gudang Transit ke Fasilitas Roastery',
+          action: 'Pengujian kadar air (<12.5%), defect count, cupping SCAA, dan karung goni ekspor',
+          verifierRole: 'VERIFIER_WAREHOUSE',
+          verifierName: 'Verifikator Gudang',
+          checkpoints: 'Standar Mutu Fisik Kopi & Integritas CDL',
+          relatedIndices: 'CT-SDI (Ec3 Mutu Kontrak, G1 Keterlacakan Dokumen)'
+        },
+        {
+          step: 5,
+          from: 'ROASTERY',
+          to: 'COFFEE_SHOP',
+          title: 'Penyangraian ke Kedai Kopi & Ritel',
+          action: 'Batch roasting, yield rendemen, energi sangrai kWh eq, dan valorisasi kulit ari (chaff)',
+          verifierRole: 'VERIFIER_ROASTERY',
+          verifierName: 'Verifikator Roastery',
+          checkpoints: 'SOP Roasting & Valorisasi Sampingan Kering',
+          relatedIndices: 'CT-CCI (BVC Silverskin Chaff, RE Sangrai) & CT-SDI (E2, S2)'
+        },
+        {
+          step: 6,
+          from: 'COFFEE_SHOP',
+          to: 'BUYER',
+          title: 'Penyajian Konsumen & Pembelian Komersial Offtaker',
+          action: 'Penyeduhan, pemanfaatan ampas kopi (SCG) ke pupuk/briket, dan peninjauan Paspor Digital',
+          verifierRole: 'VERIFIER_ROASTERY',
+          verifierName: 'Verifikator Roastery / Audit Ritel',
+          checkpoints: 'Paspor Digital QR & Uji Tuntas EUDR Due Diligence',
+          relatedIndices: 'Verifikasi Paripurna 3 Indeks: CT-4CI, CT-CCI, CT-SDI'
+        }
+      ];
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        disclaimer: 'Penyelarasan 11 Stakeholder CircularTrace (7 Pelaku Rantai Pasok + 4 Verifikator Khusus)',
+        totalStakeholders: matrix.length,
+        stakeholders: matrix,
+        supplyChainFlow
+      }));
+      return;
+    }
+
     // 1. Farmer Groups
     if (pathname === '/api/groups' && req.method === 'GET') {
       const list = Array.from(globalDataStore.groups.values());

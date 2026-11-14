@@ -236,5 +236,177 @@ export const RoleFormsConfig = {
         ]
       }
     ]
+  },
+
+  FARMER_GROUP: {
+    roleCode: 'FARMER_GROUP',
+    roleName: 'Kelompok Tani (Managing Entity)',
+    stage: 'FARMER_GROUP',
+    defaultBoundary: 'COLLECTION_POINT',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Titik Kumpul Ceri & Logbook Penerimaan',
+        description: 'Pencatatan ceri dari petani anggota, penimbangan, dan alokasi lot',
+        fields: [
+          { name: 'group_id', label: 'ID Kelompok Tani', type: 'text', required: true },
+          { name: 'collection_date', label: 'Tanggal Titik Kumpul', type: 'date', required: true },
+          { name: 'total_cherry_kg', label: 'Total Ceri Diterima (kg)', type: 'number', min: 0, required: true },
+          { name: 'service_fee_collected_idr', label: 'Biaya Jasa Titik Kumpul (Rp 500/kg)', type: 'number', min: 0, required: true }
+        ]
+      },
+      {
+        stepNumber: 2,
+        stepTitle: 'Tata Kelola ICS & Checklist ME (33 CP)',
+        description: 'Pemenuhan kriteria Managing Entity dan dokumen kelembagaan',
+        fields: [
+          { name: 'active_farmers_count', label: 'Jumlah Petani Aktif Periode Ini', type: 'number', min: 1, required: true },
+          { name: 'internal_inspections_completed', label: 'Inspeksi Internal Selesai Dilakukan', type: 'number', min: 0, required: true },
+          { name: 'me_checkpoints_met', label: 'Kepatuhan Checklist Managing Entity (ME01–ME33)', type: 'number', min: 0, max: 33, required: true }
+        ]
+      }
+    ]
+  },
+
+  COFFEE_SHOP: {
+    roleCode: 'COFFEE_SHOP',
+    roleName: 'Coffee Shop (Café & Retail)',
+    stage: 'COFFEE_SHOP',
+    defaultBoundary: 'CAFE_RETAIL_GATE',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Penerimaan Roasted Bean & Penyeduhan',
+        description: 'Input roasted bean terlacak dan penyajian kopi',
+        fields: [
+          { name: 'cafe_id', label: 'ID Coffee Shop', type: 'text', required: true },
+          { name: 'roasted_bean_used_kg', label: 'Roasted Bean Digunakan (kg)', type: 'number', min: 0, required: true },
+          { name: 'cups_served_count', label: 'Jumlah Cangkir Disajikan', type: 'number', min: 0, required: true }
+        ]
+      },
+      {
+        stepNumber: 2,
+        stepTitle: 'Valorisasi Ampas Kopi / SCG (BVC Café)',
+        description: 'Pencatatan ampas kopi dan penyaluran untuk kompos / briket',
+        fields: [
+          { name: 'scg_generated_dry_kg', label: 'Ampas Kopi Kering Dihasilkan (kg)', type: 'number', min: 0, required: true },
+          { name: 'scg_destination', label: 'Tujuan Pemanfaatan (Kompos/Briket/Bahan Organik)', type: 'text', required: true },
+          { name: 'scg_utilized_dry_kg', label: 'Ampas Kopi yang Dimanfaatkan (kg)', type: 'number', min: 0, required: true },
+          { name: 'passport_qr_displayed', label: 'Paspor Digital QR Ditampilkan ke Konsumen', type: 'boolean', default: true }
+        ]
+      }
+    ]
+  },
+
+  BUYER: {
+    roleCode: 'BUYER',
+    roleName: 'Buyer (Pembeli / Offtaker / Eksportir)',
+    stage: 'BUYER',
+    defaultBoundary: 'MARKET_DESTINATION',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Verifikasi Pra-Beli & Kepatuhan EUDR',
+        description: 'Pemeriksaan skor 3 indeks, bukti bebas deforestasi, dan kontrak pembelian',
+        fields: [
+          { name: 'buyer_id', label: 'ID Buyer / Eksportir', type: 'text', required: true },
+          { name: 'lot_id_purchased', label: 'ID Lot Kopi yang Dibeli', type: 'text', required: true },
+          { name: 'contract_volume_kg', label: 'Volume Kontrak (kg)', type: 'number', min: 0, required: true },
+          { name: 'eudr_due_diligence_passed', label: 'Hasil Uji Tuntas EUDR Memenuhi Syarat', type: 'boolean', default: true },
+          { name: 'minimum_ct4ci_met', label: 'Kesiapan Kepatuhan Internal CT-4CI Diterima', type: 'boolean', default: true }
+        ]
+      }
+    ]
+  },
+
+  ICS_VERIFIER_FARMER: {
+    roleCode: 'ICS_VERIFIER_FARMER',
+    roleName: 'Verifikator / ICS untuk Petani',
+    stage: 'FARMER',
+    defaultBoundary: 'INSPECTION_FARMER',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Inspeksi Kebun & Validasi Plot Geodata',
+        description: 'Pemeriksaan batas koordinat plot, bebas deforestasi (P070), dan kebun',
+        fields: [
+          { name: 'farmer_id', label: 'ID Petani Diperiksa', type: 'text', required: true },
+          { name: 'plot_verified', label: 'Plot Koordinat & Poligon Terverifikasi di Lapangan', type: 'boolean', required: true },
+          { name: 'p070_deforestation_free', label: 'P070: Lahan Bebas Deforestasi Pasca 2020', type: 'select', options: ['COMPLIANT', 'NON_COMPLIANT'], required: true },
+          { name: 'p075_banned_chem_free', label: 'P075: Bebas Bahan Kimia Dilarang (Paraquat, dll)', type: 'select', options: ['COMPLIANT', 'NON_COMPLIANT'], required: true }
+        ]
+      },
+      {
+        stepNumber: 2,
+        stepTitle: 'Penilaian 108 Checkpoint 4C Producer & Bukti',
+        description: 'Penetapan status Applicability (Ai), Kecukupan Bukti (Vi), dan Kepatuhan (Ci)',
+        fields: [
+          { name: 'producer_checkpoints_evaluated', label: 'Jumlah Checkpoint Diperiksa (dari 108 CP)', type: 'number', min: 1, max: 108, required: true },
+          { name: 'major_gate_status', label: 'Status Major Gate 4C', type: 'select', options: ['PASSED', 'UNRESOLVED'], required: true },
+          { name: 'inspection_report_uri', label: 'Unggah Berita Acara Inspeksi Lapangan', type: 'file_or_uri', required: true }
+        ]
+      }
+    ]
+  },
+
+  ICS_VERIFIER_PROCESSOR: {
+    roleCode: 'ICS_VERIFIER_PROCESSOR',
+    roleName: 'ICS untuk Pengolah',
+    stage: 'PROCESSOR',
+    defaultBoundary: 'AUDIT_PROCESSOR',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Audit Neraca Massa Cascara & Meter Air/Energi',
+        description: 'Verifikasi bukti timbang BVC, resirkulasi air WC, dan energi terbarukan RE',
+        fields: [
+          { name: 'processor_id', label: 'ID Fasilitas Pengolah', type: 'text', required: true },
+          { name: 'bvc_mass_balance_verified', label: 'Neraca Massa Cascara Terverifikasi (Dry Kg <= Origin)', type: 'boolean', required: true },
+          { name: 'bvc_actual_use_proof_valid', label: 'Bukti Penggunaan Aktual (Pupuk/Pakan) Diterima', type: 'boolean', required: true },
+          { name: 'water_recycle_meter_verified', label: 'Meteran Air Baru & Resirkulasi Dikalibrasi', type: 'boolean', required: true },
+          { name: 'service_provider_cps_met', label: 'Checklist Service Provider Terpenuhi (dari 83 CP)', type: 'number', min: 0, max: 83, required: true }
+        ]
+      }
+    ]
+  },
+
+  VERIFIER_WAREHOUSE: {
+    roleCode: 'VERIFIER_WAREHOUSE',
+    roleName: 'Verifikator Gudang',
+    stage: 'WAREHOUSE',
+    defaultBoundary: 'AUDIT_WAREHOUSE',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Audit Mutu Fisik & Integritas Penyimpanan',
+        description: 'Pemeriksaan alat ukur kadar air, defect count, dan kebersihan gudang',
+        fields: [
+          { name: 'warehouse_id', label: 'ID Fasilitas Gudang', type: 'text', required: true },
+          { name: 'moisture_calibration_valid', label: 'Kalibrasi Moisture Tester Terverifikasi Sah', type: 'boolean', required: true },
+          { name: 'storage_sanitation_pass', label: 'Sanitasi & Bebas Kontaminasi Kimia Memenuhi Syarat', type: 'boolean', required: true },
+          { name: 'grainpro_packaging_certified', label: 'Kemasan Karung Ekspor Memenuhi Standar Sirkular', type: 'boolean', required: true }
+        ]
+      }
+    ]
+  },
+
+  VERIFIER_ROASTERY: {
+    roleCode: 'VERIFIER_ROASTERY',
+    roleName: 'Verifikator Roastery',
+    stage: 'ROASTERY',
+    defaultBoundary: 'AUDIT_ROASTERY',
+    steps: [
+      {
+        stepNumber: 1,
+        stepTitle: 'Audit Energi Roasting & Valorisasi Kulit Ari (Chaff)',
+        description: 'Verifikasi meteran energi sangrai kWh eq dan penyaluran chaff silverskin',
+        fields: [
+          { name: 'roastery_id', label: 'ID Fasilitas Roastery', type: 'text', required: true },
+          { name: 'roasting_energy_verified_kwh', label: 'Konsumsi Energi Terverifikasi (kWh eq)', type: 'number', min: 0, required: true },
+          { name: 'chaff_valorization_proof_valid', label: 'Bukti Valorisasi Chaff Kulit Ari Terverifikasi', type: 'boolean', required: true },
+          { name: 'k3_roasting_standard_met', label: 'Standar K3 & Penanganan Emisi Sangrai Terpenuhi', type: 'boolean', required: true }
+        ]
+      }
+    ]
   }
 };

@@ -43,6 +43,7 @@ function switchTab(tabId) {
 
   // Lazy load data for specific tabs
   if (tabId === 'dashboard-indices') loadDashboardOverview();
+  else if (tabId === 'stakeholders-matrix') loadStakeholdersMatrix();
   else if (tabId === 'kelompok-tani') loadGroupsList();
   else if (tabId === 'petani') loadFarmersList();
   else if (tabId === 'farm-plot') loadPlotsTable();
@@ -57,12 +58,32 @@ function switchTab(tabId) {
 function switchActorRole(role) {
   currentRole = role;
   if (role === 'FARMER') currentActorId = 'USR-FAR-01';
+  else if (role === 'FARMER_GROUP') currentActorId = 'USR-GROUP-01';
+  else if (role === 'PROCESSOR') currentActorId = 'USR-PROC-01';
+  else if (role === 'WAREHOUSE') currentActorId = 'USR-WH-01';
+  else if (role === 'ROASTERY') currentActorId = 'USR-ROAST-01';
+  else if (role === 'COFFEE_SHOP') currentActorId = 'USR-CAFE-01';
+  else if (role === 'BUYER') currentActorId = 'USR-BUYER-01';
+  else if (role === 'ICS_VERIFIER_FARMER') currentActorId = 'USR-ICS-FAR';
+  else if (role === 'ICS_VERIFIER_PROCESSOR') currentActorId = 'USR-ICS-PROC';
+  else if (role === 'VERIFIER_WAREHOUSE') currentActorId = 'USR-VER-WH';
+  else if (role === 'VERIFIER_ROASTERY') currentActorId = 'USR-VER-ROAST';
   else if (role === 'ICS_OPERATOR') currentActorId = 'USR-OP-01';
   else if (role === 'MANAGER') currentActorId = 'USR-MGR-01';
+  else if (role === 'METHODOLOGY_ADMIN') currentActorId = 'USR-ADMIN-01';
   else currentActorId = 'USR-VER-01';
+
+  const sel = document.getElementById('user-role-select');
+  if (sel && sel.value !== role) sel.value = role;
 
   console.log(`Switched role to: ${currentRole} (${currentActorId})`);
   loadDashboardOverview();
+
+  // If currently on stakeholders tab, re-render to highlight active role
+  const stPanel = document.getElementById('tab-stakeholders-matrix');
+  if (stPanel && stPanel.classList.contains('active')) {
+    loadStakeholdersMatrix();
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -1151,5 +1172,76 @@ async function triggerOfflineSync() {
     syncInd.innerHTML = '🔴 Gagal Sinkron';
     syncInd.style.color = '#dc2626';
     alert('Gagal sinkronisasi: ' + err.message);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 12: Stakeholders Matrix Renderer
+// ----------------------------------------------------------------------------
+async function loadStakeholdersMatrix() {
+  const tbody = document.getElementById('stakeholders-table-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-muted);">Memuat data matriks stakeholder...</td></tr>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/stakeholders`);
+    const data = await res.json();
+    if (!data.success || !data.stakeholders) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: red;">Gagal memuat matriks stakeholder.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    data.stakeholders.forEach((s, idx) => {
+      const isCurrentActive = s.roleCode === currentRole;
+      const isOperator = s.category === 'SUPPLY_CHAIN_OPERATOR' || s.category === 'COMMERCIAL_BUYER';
+
+      const tr = document.createElement('tr');
+      if (isCurrentActive) {
+        tr.style.backgroundColor = '#ecfdf5';
+      }
+
+      tr.innerHTML = `
+        <td style="font-weight: 700; text-align: center;">${s.stageOrder || idx + 1}</td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <strong style="color: var(--text-main); font-size: 13px;">${s.name}</strong>
+            ${isCurrentActive ? '<span class="badge badge-pass" style="font-size: 9px;">AKTIF SEKARANG</span>' : ''}
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${s.description}</div>
+        </td>
+        <td>
+          <span class="badge ${isOperator ? 'badge-pass' : 'badge-pending'}" style="font-size: 10px;">
+            ${isOperator ? 'PELAKU RANTAI PASOK' : 'VERIFIKATOR / AUDITOR'}
+          </span>
+        </td>
+        <td>
+          <code style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${s.supplyChainStage}</code>
+        </td>
+        <td style="font-size: 11px;">
+          <strong>${s.relatedIndices ? s.relatedIndices.join(' • ') : '-'}</strong>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">${s.governingCheckpoints || '-'}</div>
+        </td>
+        <td style="font-size: 11px;">
+          <span style="display: inline-flex; align-items: center; gap: 4px; color: #0f766e; font-weight: 600;">
+            ${s.pairedVerifierTitle || s.pairedVerifierRole}
+          </span>
+        </td>
+        <td style="font-size: 11px;">
+          ${s.assignedUser ? `<div><strong>👤 ${s.assignedUser.name}</strong></div><div style="font-size: 10px; color: var(--text-muted);">${s.assignedUser.title || s.assignedUser.email}</div>` : '-'}
+          ${s.assignedFacility ? `<div style="font-size: 10px; color: #0369a1; margin-top: 2px;">🏬 ${s.assignedFacility.name}</div>` : ''}
+        </td>
+        <td style="text-align: center;">
+          <button class="btn btn-sm ${isCurrentActive ? 'btn-primary' : 'btn-secondary'}" onclick="switchActorRole('${s.roleCode}')" style="white-space: nowrap; font-size: 10px;">
+            ${isCurrentActive ? '✓ Sedang Aktif' : 'Beralih Peran'}
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error('Error loading stakeholders matrix:', err);
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: red;">Error: ${err.message}</td></tr>`;
   }
 }
