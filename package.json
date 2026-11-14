@@ -5,7 +5,9 @@
   "main": "src/engine/calculation-pipeline.js",
   "type": "module",
   "scripts": {
-    "test": "node test/engine.test.js",
+    "test": "node test/engine.test.js && node test/ct4ci.test.js",
+    "test:cci-sdi": "node test/engine.test.js",
+    "test:ct4ci": "node test/ct4ci.test.js",
     "start": "node src/api/server.js"
   },
   "keywords": [
