@@ -29,7 +29,12 @@ import { globalCheckpointRegistry } from '../ct4ci/checkpoint-register.js';
 import { Ct4ciEngine } from '../ct4ci/ct4ci-engine.js';
 import { CtIdsmEngine } from '../ct4ci/idsm-engine.js';
 import { CtValidator, CtValidationError } from '../ct4ci/validator.js';
-import { PracticesFormConfig } from '../ct4ci/practices-config.js';
+import {
+  PracticesFormConfig,
+  BANNED_CHEMICALS_LIST,
+  PRESET_FARMER_ANSWERS,
+  evaluateFarmerAnswersToAssessments
+} from '../ct4ci/practices-config.js';
 import {
   ApplicabilityDecision,
   EvidenceSufficiency,
@@ -423,7 +428,92 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/practices/config' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, config: PracticesFormConfig }));
+      res.end(JSON.stringify({
+        success: true,
+        config: PracticesFormConfig,
+        bannedChemicals: BANNED_CHEMICALS_LIST
+      }));
+      return;
+    }
+
+    if (pathname === '/api/practices/presets' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        presets: PRESET_FARMER_ANSWERS
+      }));
+      return;
+    }
+
+    // Evaluate Farmer Questionnaire Answers to 108 Checkpoints & Calculate CT-4CI
+    if (pathname === '/api/practices/evaluate-readiness' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const farmerId = body.farmerId || 'FARMER-SLK-001';
+      const period = body.period || '2026-PANEN-RAYA';
+      const answers = body.answers || {};
+
+      const evaluation = evaluateFarmerAnswersToAssessments(answers, farmerId, period, globalCheckpointRegistry);
+
+      // Save each assessment into the database
+      evaluation.assessments.forEach(ass => {
+        const key = `${farmerId}_${ass.checkpointCode}_${period}`;
+        globalDataStore.assessments.set(key, ass);
+      });
+
+      // Save any proposed CAPAs
+      if (evaluation.generatedCapas && evaluation.generatedCapas.length > 0) {
+        evaluation.generatedCapas.forEach(capaData => {
+          globalDataStore.capaManager.createCapa(capaData, { userId: actorId, role: actorRole });
+        });
+      }
+
+      // Record this questionnaire practice submission
+      const practiceId = `PRAC-Q-${Date.now()}`;
+      globalDataStore.practices.set(practiceId, {
+        id: practiceId,
+        farmerId,
+        plotId: body.plotId || null,
+        category: 'ALL_TOPICS_A_TO_E',
+        observationDate: new Date().toISOString().split('T')[0],
+        periodId: period,
+        sourceInfo: 'FARMER_SELF_ASSESSMENT_WITH_ICS',
+        recordedByUserId: actorId,
+        dataPayloadJson: JSON.stringify(answers),
+        farmerConfirmationStatus: FarmerConfirmationStatus.CONFIRMED,
+        confirmationMethod: ConfirmationMethod.DIGITAL_APP,
+        confirmationDate: new Date().toISOString(),
+        confirmationNotes: 'Isian kuesioner mandiri kesiapan sertifikasi 4C',
+        verificationStatus: 'VERIFIED',
+        verifierUserId: 'USR-ICS-FAR',
+        verificationNotes: evaluation.bannedChemicalDetected ? evaluation.bannedChemicalReason : 'Verifikasi otomatis konsistensi jawaban budidaya',
+        hasBannedPesticide: evaluation.bannedChemicalDetected,
+        bannedPesticides: evaluation.bannedChemicalDetected ? [{ bannedItem: evaluation.bannedChemicalReason }] : [],
+        createdAt: new Date().toISOString()
+      });
+
+      // Recalculate CT-4CI Snapshot dynamically
+      const snapshot = globalDataStore.recalculateAndSaveSnapshot(farmerId, period, true);
+
+      globalDataStore.addAuditLog({
+        entityType: 'PracticesQuestionnaire',
+        entityId: practiceId,
+        actionType: 'EVALUATE_CT4CI',
+        actorUserId: actorId,
+        actorRole,
+        changeReason: `Evaluasi kesiapan 4C kuesioner petani ${farmerId}: Skor CT-4CI=${snapshot.ct4ciScore}%, Gate=${snapshot.majorGateStatus}`
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        farmerId,
+        period,
+        bannedChemicalDetected: evaluation.bannedChemicalDetected,
+        bannedChemicalReason: evaluation.bannedChemicalReason,
+        generatedCapasCount: evaluation.generatedCapas.length,
+        generatedCapas: evaluation.generatedCapas,
+        snapshot
+      }));
       return;
     }
 

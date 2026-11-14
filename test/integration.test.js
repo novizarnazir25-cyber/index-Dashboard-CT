@@ -208,4 +208,38 @@ describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
     assert.strictEqual(res.body.supplyChainFlow[0].from, 'FARMER');
     assert.strictEqual(res.body.supplyChainFlow[5].to, 'BUYER');
   });
+
+  it('9. POST /api/practices/evaluate-readiness evaluates questionnaire answers and updates CT-4CI snapshot', async () => {
+    // 1. Fetch presets
+    const presetsRes = await makeRequest('/api/practices/presets');
+    assert.strictEqual(presetsRes.status, 200);
+    assert.ok(presetsRes.body.presets.READY_4C_COMPLIANT);
+    assert.ok(presetsRes.body.presets.MAJOR_FAIL_VIOLATION);
+
+    // 2. Submit compliant questionnaire
+    const evalRes1 = await makeRequest('/api/practices/evaluate-readiness', { method: 'POST' }, {
+      farmerId: 'FARMER-SLK-001',
+      period: '2026-PANEN-RAYA',
+      answers: presetsRes.body.presets.READY_4C_COMPLIANT
+    });
+
+    assert.strictEqual(evalRes1.status, 200);
+    assert.strictEqual(evalRes1.body.success, true);
+    assert.strictEqual(evalRes1.body.bannedChemicalDetected, false);
+    assert.ok(evalRes1.body.snapshot.ct4ciScore >= 95.0);
+    assert.strictEqual(evalRes1.body.snapshot.majorGateStatus, 'PASSED');
+
+    // 3. Submit violation questionnaire (Paraquat + Deforestation)
+    const evalRes2 = await makeRequest('/api/practices/evaluate-readiness', { method: 'POST' }, {
+      farmerId: 'FARMER-SLK-001',
+      period: '2026-PANEN-RAYA',
+      answers: presetsRes.body.presets.MAJOR_FAIL_VIOLATION
+    });
+
+    assert.strictEqual(evalRes2.status, 200);
+    assert.strictEqual(evalRes2.body.bannedChemicalDetected, true);
+    assert.ok(evalRes2.body.bannedChemicalReason.includes('Paraquat'));
+    assert.strictEqual(evalRes2.body.snapshot.majorGateStatus, 'UNRESOLVED');
+    assert.ok(evalRes2.body.generatedCapasCount > 0);
+  });
 });

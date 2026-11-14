@@ -630,48 +630,292 @@ async function loadPlotsTable() {
 // TAB 5: Cultivation Practices Wizard (Topics A-E)
 // ----------------------------------------------------------------------------
 let cachedPracticesConfig = [];
+let cachedBannedChemicals = [];
+let cachedPresets = {};
+let currentPracticesAnswers = {};
+let activePracticeTopicIndex = 0; // 0=A, 1=B, 2=C, 3=D, 4=E, 5=ALL
+
 async function loadPracticesConfig() {
   try {
     const res = await fetch(`${API_BASE}/api/practices/config`);
     const json = await res.json();
-    if (json.success) cachedPracticesConfig = json.config;
+    if (json.success) {
+      cachedPracticesConfig = json.config || [];
+      cachedBannedChemicals = json.bannedChemicals || [];
+    }
+    const presetRes = await fetch(`${API_BASE}/api/practices/presets`);
+    const presetJson = await presetRes.json();
+    if (presetJson.success) {
+      cachedPresets = presetJson.presets || {};
+    }
   } catch (err) {
-    console.error('Error loading practices config:', err);
+    console.error('Error loading practices config/presets:', err);
   }
 }
 
 async function loadPracticesList() {
   const container = document.getElementById('practices-wizard-container');
+  if (!container) return;
+
+  if (cachedPracticesConfig.length === 0 || Object.keys(cachedPresets).length === 0) {
+    await loadPracticesConfig();
+  }
+
+  // Fetch farmer practices records from DB
   try {
     const res = await fetch(`${API_BASE}/api/practices?farmerId=${currentFarmerId}`);
     const json = await res.json();
-    if (!json.success) return;
+    if (json.success) {
+      cachedPractices = json.practices || [];
+    }
+  } catch (err) {
+    console.error('Error fetching practices records:', err);
+  }
 
-    cachedPractices = json.practices;
+  // Initialize answers if empty with compliant preset by default
+  if (Object.keys(currentPracticesAnswers).length === 0 && cachedPresets.READY_4C_COMPLIANT) {
+    currentPracticesAnswers = JSON.parse(JSON.stringify(cachedPresets.READY_4C_COMPLIANT));
+  }
 
-    let html = `
-      <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 13px; font-weight: 700;">Catatan Praktik Terdata untuk Petani Aktif:</span>
-        <button class="btn btn-primary btn-sm" onclick="showNewPracticeDialog()">+ Tambah Catatan Praktik Baru</button>
+  const activeFarmer = cachedFarmers.find(f => f.id === currentFarmerId) || { name: 'Dt. Rajo Nan Sati', village: 'Aie Dingin', id: 'FARMER-SLK-001' };
+
+  let html = `
+    <!-- 1. Questionnaire Header & Status Card -->
+    <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+        <div>
+          <h3 style="margin: 0 0 4px 0; font-size: 16px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+            <span>🌱</span> Formulir Isian Pendataan Petani & Evaluasi Kesiapan Sertifikasi 4C (CT-4CI)
+          </h3>
+          <div style="font-size: 12px; color: var(--text-muted);">
+            Petani Aktif: <strong>${activeFarmer.name} (${activeFarmer.id})</strong> • Desa: ${activeFarmer.village} • Musim: <strong>${currentPeriod}</strong>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="btn btn-sm btn-primary" onclick="applyPracticesPreset('READY_4C_COMPLIANT')" style="background: #059669; border-color: #059669;" title="Muat jawaban standar 4C lengkap">
+            🌟 1. Muat Isian Siap 4C (95.9% / Major PASSED)
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="applyPracticesPreset('MAJOR_FAIL_VIOLATION')" style="background: #dc2626; border-color: #dc2626; color: white;" title="Muat skenario pelanggaran Paraquat & Deforestasi">
+            🚨 2. Muat Isian Pelanggaran Major
+          </button>
+          <button class="btn btn-sm btn-secondary" onclick="resetPracticesForm()">
+            🔄 Reset Formulir
+          </button>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: #475569; background: #ffffff; padding: 8px 12px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+        🛡️ <strong>Alur Ketertelusuran Metodologi:</strong> Setiap jawaban di bawah ini langsung dipetakan ke 108 Checkpoint 4C Producer, menguji aturan Major Gate (larangan Paraquat, deforestasi, pembakaran lahan, pekerja anak), dan menghasilkan perhitungan CT-4CI riil dari database.
+      </div>
+    </div>
+
+    <!-- Live Banned Chemical Alert Box -->
+    <div id="banned-chemical-alert-box" style="display: none;" class="banned-chemical-alert">
+      <span style="font-size: 18px;">🚨</span>
+      <div>
+        <strong>PERINGATAN BAHAN KIMIA TERLARANG TERDETEKSI:</strong>
+        <span id="banned-chemical-alert-text">Penggunaan herbisida/pestisida yang mengandung Paraquat atau bahan terlarang 4C akan menggugurkan status Major Gate secara mutlak.</span>
+      </div>
+    </div>
+
+    <!-- 2. Topic Navigation Tabs (Topik A s/d E) -->
+    <div class="wizard-topic-nav" style="margin-top: 14px;">
+  `;
+
+  cachedPracticesConfig.forEach((cat, idx) => {
+    const isActive = activePracticeTopicIndex === idx;
+    const catCode = cat.categoryName.substring(0, 1);
+    html += `
+      <button class="wizard-topic-btn ${isActive ? 'active' : ''}" onclick="switchPracticesTopic(${idx})">
+        <span>${cat.categoryIcon}</span>
+        <span>${cat.categoryName}</span>
+      </button>
+    `;
+  });
+
+  html += `
+      <button class="wizard-topic-btn ${activePracticeTopicIndex === 5 ? 'active' : ''}" onclick="switchPracticesTopic(5)">
+        <span>📋</span>
+        <span>Tampilkan Semua Topik (A–E)</span>
+      </button>
+    </div>
+
+    <!-- 3. Question Form Body -->
+    <form id="practices-evaluation-form" onsubmit="event.preventDefault(); submitPracticesEvaluation();">
+  `;
+
+  cachedPracticesConfig.forEach((cat, catIdx) => {
+    // If not displaying this category, skip (unless activePracticeTopicIndex === 5)
+    if (activePracticeTopicIndex !== 5 && activePracticeTopicIndex !== catIdx) {
+      return;
+    }
+
+    html += `
+      <div style="margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; background: white;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 16px;">
+          <div>
+            <h4 style="margin: 0; font-size: 15px; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+              <span>${cat.categoryIcon}</span> ${cat.categoryName}
+            </h4>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${cat.description}</div>
+          </div>
+          <span class="badge badge-minor" style="font-size: 11px;">Topik ${cat.category}</span>
+        </div>
+    `;
+
+    cat.sections.forEach(sec => {
+      html += `
+        <div style="margin-bottom: 18px;">
+          <h5 style="margin: 0 0 10px 0; font-size: 13px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">
+            📌 ${sec.title}
+          </h5>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+      `;
+
+      sec.questions.forEach((q, qIdx) => {
+        const val = currentPracticesAnswers[q.id];
+        const isMajor = q.isMajor;
+        const mappedCodes = q.mappedCheckpoints || [];
+
+        html += `
+          <div class="question-card ${isMajor ? 'has-major' : 'is-minor'}" id="card-${q.id}">
+            <div class="question-meta">
+              <div class="question-title">
+                <span style="color: #64748b; margin-right: 4px;">#${q.id.replace('Q_', '')}:</span>
+                ${q.text}
+              </div>
+              <div class="question-badges">
+                ${isMajor ? '<span class="badge badge-fail" style="font-size: 10px;">KRITERIA MAJOR</span>' : '<span class="badge badge-minor" style="font-size: 10px;">STANDAR MINOR</span>'}
+                ${mappedCodes.map(c => `<span class="badge ${isMajor ? 'badge-fail' : 'badge-minor'}" style="font-size: 10px;" title="Terhubung ke Checkpoint ${c}">4C: ${c}</span>`).join(' ')}
+              </div>
+            </div>
+        `;
+
+        // Render input control according to question type
+        if (q.type === 'BOOLEAN') {
+          const isTrue = val === true || val === 'true';
+          const isFalse = val === false || val === 'false';
+          html += `
+            <div class="question-options-group" style="flex-direction: row; gap: 16px;">
+              <label class="radio-option-label ${isTrue ? 'selected' : ''}" style="flex: 1;">
+                <input type="radio" name="${q.id}" value="true" ${isTrue ? 'checked' : ''} onchange="onPracticeAnswerChange('${q.id}', true)">
+                <span>🟢 Ya / Memenuhi Ketentuan</span>
+              </label>
+              <label class="radio-option-label ${isFalse ? 'selected' : ''}" style="flex: 1;">
+                <input type="radio" name="${q.id}" value="false" ${isFalse ? 'checked' : ''} onchange="onPracticeAnswerChange('${q.id}', false)">
+                <span>🔴 Tidak / Belum Memenuhi</span>
+              </label>
+            </div>
+          `;
+        } else if (q.type === 'SINGLE_CHOICE') {
+          html += `<div class="question-options-group">`;
+          (q.options || []).forEach(opt => {
+            const isSelected = val === opt;
+            const isPelanggaran = opt.includes('Pelanggaran') || opt.includes('Kurang') || opt.includes('Tidak');
+            html += `
+              <label class="radio-option-label ${isSelected ? 'selected' : ''}">
+                <input type="radio" name="${q.id}" value="${escapeHtml(opt)}" ${isSelected ? 'checked' : ''} onchange="onPracticeAnswerChange('${q.id}', this.value)">
+                <span>${opt}</span>
+                ${isPelanggaran ? '<span class="badge badge-fail" style="margin-left: auto; font-size: 9px;">RISIKO MAJOR</span>' : ''}
+              </label>
+            `;
+          });
+          html += `</div>`;
+        } else if (q.type === 'MULTI_CHOICE') {
+          html += `<div class="question-options-group">`;
+          const selectedArray = Array.isArray(val) ? val : [];
+          (q.options || []).forEach(opt => {
+            const isChecked = selectedArray.includes(opt);
+            html += `
+              <label class="checkbox-option-label ${isChecked ? 'selected' : ''}">
+                <input type="checkbox" name="${q.id}" value="${escapeHtml(opt)}" ${isChecked ? 'checked' : ''} onchange="onPracticeMultiChoiceChange('${q.id}', this.value, this.checked)">
+                <span>${opt}</span>
+              </label>
+            `;
+          });
+          html += `</div>`;
+        } else if (q.type === 'TEXT') {
+          const textVal = typeof val === 'string' ? val : '';
+          const isBannedField = q.id === 'Q_B04_BANNED_CHEMICAL_CHECK';
+          html += `
+            <div style="margin: 8px 0;">
+              <input type="text" id="input-${q.id}" class="form-control" value="${escapeHtml(textVal)}" placeholder="${q.placeholder || ''}" oninput="onPracticeTextChange('${q.id}', this.value, ${isBannedField})">
+            </div>
+          `;
+        }
+
+        // Evidence and Metodology hints
+        if (q.evidenceRequired || q.help) {
+          html += `
+            <div class="evidence-hint">
+              ${q.evidenceRequired ? `<div>📌 <strong>Bukti Verifikasi ICS:</strong> ${q.evidenceRequired}</div>` : ''}
+              ${q.help ? `<div style="margin-top: 3px; font-style: italic;">ℹ️ <strong>Rasional Metodologi:</strong> ${q.help}</div>` : ''}
+            </div>
+          `;
+        }
+
+        html += `</div>`; // /question-card
+      });
+
+      html += `</div></div>`; // /section
+    });
+
+    html += `</div>`; // /category-card
+  });
+
+  // Action Bar Footer
+  html += `
+    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 8px; padding: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="stepPracticesTopic(-1)" ${activePracticeTopicIndex === 0 ? 'disabled' : ''}>
+          ← Topik Sebelumnya
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="stepPracticesTopic(1)" ${activePracticeTopicIndex >= 4 ? 'disabled' : ''}>
+          Topik Selanjutnya →
+        </button>
+      </div>
+      <div>
+        <button type="submit" class="btn btn-primary" style="background: var(--primary); font-size: 13px; font-weight: 800; padding: 10px 24px; box-shadow: 0 2px 8px rgba(19,48,35,0.3);">
+          🎯 SIMPAN ISIAN & EVALUASI KESIAPAN 4C (CT-4CI)
+        </button>
+      </div>
+    </div>
+    </form>
+  `;
+
+  // 4. Historical Submissions Table
+  html += `
+    <div style="margin-top: 20px; border-top: 2px dashed #cbd5e1; padding-top: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; font-size: 14px; color: var(--primary);">
+          📋 Riwayat Formulir Praktik Budidaya Terdata (${cachedPractices.length} Catatan)
+        </h4>
+        <button class="btn btn-secondary btn-sm" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+          ↑ Ke Formulir Isian
+        </button>
       </div>
       <table class="data-table">
         <thead>
           <tr>
+            <th>ID Praktik</th>
             <th>Kategori</th>
-            <th>Tgl Observasi</th>
+            <th>Tanggal</th>
             <th>Sumber Info</th>
             <th>Status Konfirmasi Petani</th>
             <th>Status Verifikasi ICS</th>
-            <th>Bahan Kimia Terlarang</th>
+            <th>Bahan Terlarang</th>
             <th>Aksi</th>
           </tr>
         </thead>
         <tbody>
-    `;
+  `;
 
+  if (cachedPractices.length === 0) {
+    html += `<tr><td colspan="8" style="text-align:center; color: var(--text-muted);">Belum ada riwayat isian untuk petani ini. Silakan isi formulir di atas dan simpan.</td></tr>`;
+  } else {
     cachedPractices.forEach(pr => {
       html += `
         <tr>
+          <td><code style="font-size:11px;">${pr.id}</code></td>
           <td><strong>${pr.category}</strong></td>
           <td>${pr.observationDate}</td>
           <td><span class="badge badge-minor">${pr.sourceInfo}</span></td>
@@ -691,36 +935,303 @@ async function loadPracticesList() {
               '<span class="badge badge-pass">Bebas</span>'}
           </td>
           <td>
-            ${pr.farmerConfirmationStatus === 'PENDING' && currentRole === 'FARMER' ?
-              `<button class="btn btn-primary btn-sm" onclick="confirmPractice('${pr.id}', 'CONFIRMED')">Konfirmasi</button>` :
-              `<button class="btn btn-secondary btn-sm" onclick="viewPracticeDetail('${pr.id}')">Lihat</button>`}
+            <button class="btn btn-secondary btn-sm" onclick="viewPracticeDetail('${pr.id}')">Lihat Detail</button>
           </td>
         </tr>
       `;
     });
+  }
 
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  } catch (err) {
-    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+
+  // Run immediate scan on current chemical field if populated
+  const chemAnswer = currentPracticesAnswers['Q_B04_BANNED_CHEMICAL_CHECK'] || '';
+  if (chemAnswer) {
+    checkBannedChemicalInput(chemAnswer);
   }
 }
 
-async function confirmPractice(practiceId, status) {
-  try {
-    const res = await fetch(`${API_BASE}/api/practices/${practiceId}/confirm`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': 'FARMER', 'X-Actor-Id': currentActorId },
-      body: JSON.stringify({ status, method: 'DIGITAL_APP', notes: 'Dikonfirmasi langsung oleh petani via sistem' })
+// ----------------------------------------------------------------------------
+// Practice Questionnaire Event Handlers & Evaluator Bridge
+// ----------------------------------------------------------------------------
+function switchPracticesTopic(index) {
+  activePracticeTopicIndex = index;
+  loadPracticesList();
+}
+
+function stepPracticesTopic(step) {
+  let next = activePracticeTopicIndex + step;
+  if (next < 0) next = 0;
+  if (next > 4) next = 4;
+  activePracticeTopicIndex = next;
+  loadPracticesList();
+  window.scrollTo({ top: 300, behavior: 'smooth' });
+}
+
+function onPracticeAnswerChange(questionId, value) {
+  currentPracticesAnswers[questionId] = value;
+  // Update selected class on UI cards
+  const card = document.getElementById(`card-${questionId}`);
+  if (card) {
+    card.querySelectorAll('.radio-option-label').forEach(lbl => {
+      const input = lbl.querySelector('input');
+      if (input && (input.value === String(value) || (value === true && input.value === 'true') || (value === false && input.value === 'false'))) {
+        lbl.classList.add('selected');
+      } else {
+        lbl.classList.remove('selected');
+      }
     });
-    const json = await res.json();
-    if (json.success) {
-      alert(`Praktik budidaya telah berhasil dikonfirmasi oleh petani.`);
-      loadPracticesList();
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
   }
+}
+
+function onPracticeMultiChoiceChange(questionId, optionValue, isChecked) {
+  let currentList = Array.isArray(currentPracticesAnswers[questionId]) ? [...currentPracticesAnswers[questionId]] : [];
+  if (isChecked) {
+    if (!currentList.includes(optionValue)) currentList.push(optionValue);
+  } else {
+    currentList = currentList.filter(item => item !== optionValue);
+  }
+  currentPracticesAnswers[questionId] = currentList;
+  loadPracticesList();
+}
+
+function onPracticeTextChange(questionId, textValue, isBannedField = false) {
+  currentPracticesAnswers[questionId] = textValue;
+  if (isBannedField) {
+    checkBannedChemicalInput(textValue);
+  }
+}
+
+function checkBannedChemicalInput(text) {
+  const alertBox = document.getElementById('banned-chemical-alert-box');
+  const alertText = document.getElementById('banned-chemical-alert-text');
+  if (!alertBox || !alertText) return;
+
+  if (!text || text.trim() === '') {
+    alertBox.style.display = 'none';
+    return;
+  }
+
+  const lower = text.toLowerCase();
+  const dangerousPatterns = ['paraquat', 'gramoxone', 'endosulfan', 'parathion', 'dieldrin', 'aldrin', 'chlordane', 'heptachlor', 'ddt', 'lindane', 'glyphosate'];
+  const matched = dangerousPatterns.find(p => lower.includes(p));
+
+  if (matched) {
+    alertBox.style.display = 'flex';
+    alertText.innerHTML = `Terdeteksi zat terlarang: <strong>"${matched.toUpperCase()}"</strong> dalam isian herbisida/pestisida! Kriteria Major P075/P082 akan otomatis GAGAL, mengunci Major Gate ke status <strong>UNRESOLVED</strong> dan menerbitkan temuan CAPA.`;
+  } else {
+    alertBox.style.display = 'none';
+  }
+}
+
+function applyPracticesPreset(presetKey) {
+  if (!cachedPresets[presetKey]) {
+    alert(`Preset ${presetKey} tidak ditemukan di server.`);
+    return;
+  }
+  currentPracticesAnswers = JSON.parse(JSON.stringify(cachedPresets[presetKey]));
+  loadPracticesList();
+  alert(`Preset "${presetKey === 'READY_4C_COMPLIANT' ? 'Petani Siap Audit (95.9% / Major Gate PASSED)' : 'Pelanggaran Major (Paraquat & Deforestasi)'}" berhasil dimuat ke seluruh 5 topik. Klik "SIMPAN ISIAN & EVALUASI KESIAPAN 4C" untuk menghitung indeks secara real-time!`);
+}
+
+function resetPracticesForm() {
+  currentPracticesAnswers = {};
+  loadPracticesList();
+}
+
+async function submitPracticesEvaluation() {
+  const farmerId = currentFarmerId;
+  const period = currentPeriod;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/practices/evaluate-readiness`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Actor-Role': currentRole,
+        'X-Actor-Id': currentActorId
+      },
+      body: JSON.stringify({
+        farmerId,
+        period,
+        answers: currentPracticesAnswers
+      })
+    });
+
+    const json = await res.json();
+    if (!json.success) {
+      alert(`Gagal mengevaluasi kesiapan: ${json.error || 'Terjadi kesalahan'}`);
+      return;
+    }
+
+    // Refresh all global dashboard state
+    await loadDashboardOverview();
+    await loadCheckpoints();
+    await loadCapaTable();
+    await loadPracticesList();
+
+    // Show Evaluation Result Modal
+    openEvaluationResultModal(json);
+  } catch (err) {
+    alert(`Terjadi error saat evaluasi kesiapan: ${err.message}`);
+  }
+}
+
+function openEvaluationResultModal(data) {
+  const modal = document.getElementById('evaluation-result-modal');
+  const content = document.getElementById('evaluation-result-content');
+  if (!modal || !content) return;
+
+  const snap = data.snapshot || {};
+  const isPassed = snap.majorGateStatus === 'PASSED';
+  const score = snap.ct4ciScore !== undefined ? snap.ct4ciScore : 0;
+  const ec = snap.evidenceCoveragePct !== undefined ? snap.evidenceCoveragePct : 0;
+  const dims = snap.dimensionBreakdown || {};
+  const capas = data.generatedCapas || [];
+
+  content.innerHTML = `
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="font-size: 32px; margin-bottom: 6px;">${isPassed ? '🎉' : '🚨'}</div>
+      <h3 style="margin: 0; font-size: 18px; color: var(--primary);">Hasil Evaluasi Kesiapan Sertifikat 4C (CT-4CI)</h3>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+        Evaluasi Berdasarkan 108 Checkpoint 4C Producer • Musim: <strong>${data.period}</strong>
+      </div>
+    </div>
+
+    <!-- Gate Status Banner -->
+    <div style="padding: 14px 18px; border-radius: 8px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; background: ${isPassed ? '#ecfdf5' : '#fef2f2'}; border: 1px solid ${isPassed ? '#a7f3d0' : '#fecaca'};">
+      <div>
+        <strong style="font-size: 14px; color: ${isPassed ? '#065f46' : '#991b1b'};">
+          ${isPassed ? '✅ MAJOR GATE PASSED (MEMENUHI SYARAT)' : '🚨 MAJOR GATE UNRESOLVED (TERDAPAT TEMUAN KRITIS)'}
+        </strong>
+        <div style="font-size: 11px; color: ${isPassed ? '#047857' : '#b91c1c'}; margin-top: 2px;">
+          ${isPassed ? 'Seluruh kriteria Major yang berlaku telah terbukti sesuai tanpa temuan kritis.' : 'Terdapat checkpoint Major yang terbukti gagal atau bahan terlarang yang terdeteksi.'}
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span style="font-size: 24px; font-weight: 800; color: ${isPassed ? '#059669' : '#dc2626'};">
+          ${Number(score).toFixed(1)}%
+        </span>
+        <div style="font-size: 10px; font-weight: 700; color: #475569;">SKOR CT-4CI</div>
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid-3" style="margin-bottom: 18px;">
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Cakupan Bukti (EC)</div>
+        <div style="font-size: 18px; font-weight: 800; color: #0284c7;">${Number(ec).toFixed(1)}%</div>
+        <div style="font-size: 10px; color: #64748b;">${snap.sufficientEvidenceCount || 0} Bukti Diterima</div>
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Checkpoint Berlaku</div>
+        <div style="font-size: 18px; font-weight: 800; color: #334155;">${snap.applicableCount || 0}</div>
+        <div style="font-size: 10px; color: #64748b;">${snap.compliantWithSufficientEvidenceCount || 0} Sesuai</div>
+      </div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center;">
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Temuan CAPA Baru</div>
+        <div style="font-size: 18px; font-weight: 800; color: ${capas.length > 0 ? '#dc2626' : '#059669'};">${capas.length}</div>
+        <div style="font-size: 10px; color: #64748b;">Tindakan Perbaikan</div>
+      </div>
+    </div>
+
+    <!-- 3 Dimensions Breakdown -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 18px;">
+      <div style="font-size: 12px; font-weight: 700; margin-bottom: 8px;">Capaian Berdasarkan 3 Dimensi 4C:</div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+        <span>📊 Dimensi Ekonomi:</span>
+        <strong>${dims.ECONOMIC?.readinessScore || 0}%</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+        <span>👥 Dimensi Sosial:</span>
+        <strong>${dims.SOCIAL?.readinessScore || 0}%</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px;">
+        <span>🌱 Dimensi Lingkungan:</span>
+        <strong>${dims.ENVIRONMENTAL?.readinessScore || 0}%</strong>
+      </div>
+    </div>
+
+    ${capas.length > 0 ? `
+      <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 12px; margin-bottom: 18px;">
+        <strong style="font-size: 12px; color: #92400e; display: block; margin-bottom: 6px;">
+          ⚠️ Temuan Tindakan Perbaikan (CAPA) yang Diterbitkan:
+        </strong>
+        <ul style="margin: 0; padding-left: 20px; font-size: 11px; color: #78350f;">
+          ${capas.map(c => `<li><strong>${c.checkpointCode}:</strong> ${c.findingDescription} (Tenggat: ${c.deadlineDate})</li>`).join('')}
+        </ul>
+      </div>
+    ` : ''}
+
+    <div style="display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+      <button class="btn btn-secondary" onclick="closeEvaluationResultModal()">Tutup</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeEvaluationResultModal(); switchTab('penilaian-ct4ci');">
+          📋 Lihat Rincian 108 Checkpoint
+        </button>
+        <button class="btn btn-primary" onclick="closeEvaluationResultModal(); switchTab('dashboard-indices');">
+          📈 Lihat di Roda Konsentris Dashboard
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeEvaluationResultModal() {
+  const modal = document.getElementById('evaluation-result-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function viewPracticeDetail(practiceId) {
+  const pr = cachedPractices.find(p => p.id === practiceId);
+  if (!pr) return;
+
+  const modal = document.getElementById('drill-down-modal');
+  const content = document.getElementById('drill-down-content');
+  if (!modal || !content) return;
+
+  content.innerHTML = `
+    <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+      <h3 style="margin: 0; font-size: 16px; color: var(--primary);">Detail Catatan Praktik Budidaya</h3>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">ID: <code>${pr.id}</code></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; margin-bottom: 16px;">
+      <div><strong>Kategori:</strong> ${pr.category}</div>
+      <div><strong>Tanggal Observasi:</strong> ${pr.observationDate}</div>
+      <div><strong>Sumber Informasi:</strong> ${pr.sourceInfo}</div>
+      <div><strong>Petugas Pencatat:</strong> ${pr.recordedByUserId}</div>
+      <div><strong>Konfirmasi Petani:</strong> <span class="badge ${pr.farmerConfirmationStatus === 'CONFIRMED' ? 'badge-pass' : 'badge-pending'}">${pr.farmerConfirmationStatus}</span></div>
+      <div><strong>Verifikasi ICS:</strong> <span class="badge ${pr.verificationStatus === 'VERIFIED' ? 'badge-pass' : 'badge-pending'}">${pr.verificationStatus}</span></div>
+      <div><strong>Bahan Terlarang:</strong> ${pr.hasBannedPesticide ? '<span class="badge badge-fail">🚨 TERDETEKSI</span>' : '<span class="badge badge-pass">Bebas</span>'}</div>
+    </div>
+    <div style="margin-bottom: 16px;">
+      <strong>Catatan Verifikasi:</strong>
+      <div style="background: #f8fafc; padding: 10px; border-radius: 6px; font-size: 12px; margin-top: 4px; border: 1px solid #e2e8f0;">
+        ${pr.verificationNotes || 'Tidak ada catatan.'}
+      </div>
+    </div>
+    <div style="margin-bottom: 16px;">
+      <strong>Payload Isian Jawaban Mentah (JSON):</strong>
+      <pre style="background: #1e293b; color: #f8fafc; padding: 12px; border-radius: 6px; font-size: 11px; max-height: 200px; overflow-y: auto; margin-top: 4px;">${pr.dataPayloadJson ? JSON.stringify(JSON.parse(pr.dataPayloadJson), null, 2) : '{}'}</pre>
+    </div>
+    <div style="display: flex; justify-content: flex-end;">
+      <button class="btn btn-secondary" onclick="closeDrillDownModal()">Tutup</button>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function showNewPracticeDialog() {
+  window.scrollTo({ top: 300, behavior: 'smooth' });
+}
+
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ----------------------------------------------------------------------------
