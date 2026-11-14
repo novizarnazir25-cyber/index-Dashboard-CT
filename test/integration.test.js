@@ -1,0 +1,171 @@
+/**
+ * CIRCULARTRACE - HTTP REST API Integration Test Suite
+ * Tests all endpoints end-to-end against the live HTTP server.
+ */
+
+process.env.NODE_ENV = 'test';
+
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert';
+import http from 'http';
+import { server, globalDataStore } from '../src/api/server.js';
+
+describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
+  const PORT = 3001;
+  const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+  before(() => {
+    return new Promise((resolve) => {
+      server.listen(PORT, '127.0.0.1', () => {
+        resolve();
+      });
+    });
+  });
+
+  after(() => {
+    return new Promise((resolve) => {
+      server.close(() => {
+        resolve();
+      });
+    });
+  });
+
+  function makeRequest(path, options = {}, body = null) {
+    return new Promise((resolve, reject) => {
+      const url = new URL(path, BASE_URL);
+      const reqOptions = {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method: options.method || 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Actor-Role': 'VERIFIER',
+          'X-Actor-Id': 'USR-VER-01',
+          ...(options.headers || {})
+        }
+      };
+
+      const req = http.request(reqOptions, (res) => {
+        let data = '';
+        res.on('data', chunk => { data += chunk.toString(); });
+        res.on('end', () => {
+          let parsed;
+          try {
+            parsed = JSON.parse(data);
+          } catch (e) {
+            parsed = data;
+          }
+          resolve({ status: res.statusCode, headers: res.headers, body: parsed });
+        });
+      });
+
+      req.on('error', reject);
+      if (body) {
+        req.write(typeof body === 'string' ? body : JSON.stringify(body));
+      }
+      req.end();
+    });
+  }
+
+  it('1. GET /api/farmers returns list with profile summaries', async () => {
+    const res = await makeRequest('/api/farmers');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.ok(Array.isArray(res.body.farmers));
+    assert.ok(res.body.farmers.length >= 2);
+    const syamsul = res.body.farmers.find(f => f.farmerCode === 'F-SLK-001');
+    assert.ok(syamsul);
+    assert.strictEqual(syamsul.plotCount, 2);
+    assert.strictEqual(syamsul.totalAreaHa, 2.0);
+  });
+
+  it('2. GET /api/dashboard/overview returns integrated CT-4CI, CT-CI, and CT-SDI', async () => {
+    const res = await makeRequest('/api/dashboard/overview?farmerId=FARMER-SLK-001&period=2026-PANEN-RAYA');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.ok(res.body.disclaimer.includes('Bukan sertifikat atau keputusan audit resmi 4C'));
+    assert.strictEqual(res.body.isSimulationData, true);
+
+    const { indices } = res.body;
+    assert.strictEqual(indices.ct4ci.score, 95.9);
+    assert.strictEqual(indices.ct4ci.coverage, 100.0);
+    assert.strictEqual(indices.ct4ci.majorGateStatus, 'PASSED');
+    assert.strictEqual(indices.ctCci.score, 56.04);
+    assert.strictEqual(indices.ctSdi.score, 84.44);
+  });
+
+  it('3. GET /api/checkpoints returns all 108 Producer checkpoints', async () => {
+    const res = await makeRequest('/api/checkpoints?module=PRODUCER');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.total, 108);
+
+    const econ = res.body.checkpoints.filter(c => c.dimension === 'ECONOMIC');
+    const soc = res.body.checkpoints.filter(c => c.dimension === 'SOCIAL');
+    const env = res.body.checkpoints.filter(c => c.dimension === 'ENVIRONMENTAL');
+
+    assert.strictEqual(econ.length, 19, 'Ekonomi harus 19 item (P001..P019)');
+    assert.strictEqual(soc.length, 50, 'Sosial harus 50 item (P020..P069)');
+    assert.strictEqual(env.length, 39, 'Lingkungan harus 39 item (P070..P108)');
+  });
+
+  it('4. POST /api/plots validates coordinates and detects proximity duplicates', async () => {
+    const res = await makeRequest('/api/plots', { method: 'POST' }, {
+      plotCode: 'PLT-DUP-TEST',
+      farmerId: 'FARMER-SLK-001',
+      latitude: -1.042503,
+      longitude: 100.751202,
+      areaHa: 0.5
+    });
+
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.body.success, true);
+    assert.strictEqual(res.body.plot.isDuplicateFlagged, true);
+    assert.ok(res.body.duplicateWarning.includes('meter'));
+  });
+
+  it('5. POST /api/practices detects banned chemicals (Paraquat)', async () => {
+    const res = await makeRequest('/api/practices', { method: 'POST' }, {
+      farmerId: 'FARMER-SLK-001',
+      category: 'PEST_CHEMICAL',
+      observationDate: '2026-05-01',
+      dataPayloadJson: {
+        pesticideApplications: [
+          { productName: 'Gramoxone Herbisida', activeIngredient: 'Paraquat dichloride', dose: '2 L/Ha' }
+        ]
+      }
+    });
+
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.body.validation.hasBannedPesticide, true);
+    assert.strictEqual(res.body.validation.bannedPesticides[0].bannedItem, 'Paraquat');
+  });
+
+  it('6. POST /api/sync enforces idempotency and handles offline batches', async () => {
+    const idKey = `TEST-IDEMPOTENT-${Date.now()}`;
+    const res1 = await makeRequest('/api/sync', { method: 'POST' }, {
+      idempotencyKey: idKey,
+      entityType: 'DRAFT_BATCH',
+      payload: { count: 3 }
+    });
+    assert.strictEqual(res1.body.synced, true);
+
+    // Second call with same idempotency key
+    const res2 = await makeRequest('/api/sync', { method: 'POST' }, {
+      idempotencyKey: idKey,
+      entityType: 'DRAFT_BATCH',
+      payload: { count: 3 }
+    });
+    assert.strictEqual(res2.body.synced, false);
+    assert.strictEqual(res2.body.isDuplicate, true);
+  });
+
+  it('7. GET /api/export?type=csv returns downloadable CSV', async () => {
+    const res = await makeRequest('/api/export?type=csv');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.headers['content-type'].includes('text/csv'));
+    assert.ok(res.body.includes('farmerCode,fullName'));
+    assert.ok(res.body.includes('Syamsul Arifin'));
+  });
+});

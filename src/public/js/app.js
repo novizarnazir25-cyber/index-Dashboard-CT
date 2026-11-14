@@ -1,446 +1,1011 @@
 /**
- * CIRCULARTRACE - Interactive Client Dashboard Application
+ * CIRCULARTRACE - Interactive Dashboard Controller
+ * Powers 11 integrated menus, real-time calculations from backend database,
+ * drill-down modals, and test presets (including screenshot reproduction).
  */
 
-let currentRole = 'PROCESSOR';
-let roleConfigs = null;
-let currentAssessmentData = null;
-let latestActiveSnapshot = null;
-const snapshotHistory = [];
+const API_BASE = '';
+let currentRole = 'VERIFIER';
+let currentActorId = 'USR-VER-01';
+let currentFarmerId = 'FARMER-SLK-001';
+let currentPeriod = '2026-PANEN-RAYA';
+let cachedCheckpoints = [];
+let cachedAssessments = [];
+let cachedFarmers = [];
+let cachedPlots = [];
+let cachedPractices = [];
+let cachedEvidences = [];
+let cachedCapas = [];
 
-// Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
-  await fetchFormConfigs();
-  loadPreset('section7');
+  await loadFilterOptions();
+  await loadDashboardOverview();
+  await loadCheckpoints();
+  await loadPracticesConfig();
 });
 
-async function fetchFormConfigs() {
+// ----------------------------------------------------------------------------
+// Navigation Tabs Controller
+// ----------------------------------------------------------------------------
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+  const targetPanel = document.getElementById(`tab-${tabId}`);
+  if (targetPanel) targetPanel.classList.add('active');
+
+  const navButtons = document.querySelectorAll('.nav-tab');
+  navButtons.forEach(btn => {
+    if (btn.getAttribute('onclick')?.includes(`'${tabId}'`)) {
+      btn.classList.add('active');
+    }
+  });
+
+  // Lazy load data for specific tabs
+  if (tabId === 'dashboard-indices') loadDashboardOverview();
+  else if (tabId === 'kelompok-tani') loadGroupsList();
+  else if (tabId === 'petani') loadFarmersList();
+  else if (tabId === 'farm-plot') loadPlotsTable();
+  else if (tabId === 'praktik-budidaya') loadPracticesList();
+  else if (tabId === 'kunjungan-ics') loadInspectionsList();
+  else if (tabId === 'bukti-verifikasi') loadEvidenceTable();
+  else if (tabId === 'penilaian-ct4ci') renderCheckpointsTable();
+  else if (tabId === 'temuan-capa') loadCapaTable();
+  else if (tabId === 'laporan') loadAuditTrail();
+}
+
+function switchActorRole(role) {
+  currentRole = role;
+  if (role === 'FARMER') currentActorId = 'USR-FAR-01';
+  else if (role === 'ICS_OPERATOR') currentActorId = 'USR-OP-01';
+  else if (role === 'MANAGER') currentActorId = 'USR-MGR-01';
+  else currentActorId = 'USR-VER-01';
+
+  console.log(`Switched role to: ${currentRole} (${currentActorId})`);
+  loadDashboardOverview();
+}
+
+// ----------------------------------------------------------------------------
+// Load Filters & Dropdowns
+// ----------------------------------------------------------------------------
+async function loadFilterOptions() {
   try {
-    const res = await fetch('/api/forms/config');
-    const data = await res.json();
-    if (data.success) {
-      roleConfigs = data.forms;
-      renderRoleForm(currentRole);
+    const res = await fetch(`${API_BASE}/api/farmers`);
+    const json = await res.json();
+    if (json.success) {
+      cachedFarmers = json.farmers;
+      const farmerSelect = document.getElementById('filter-farmer');
+      farmerSelect.innerHTML = '';
+      cachedFarmers.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = `${f.farmerCode} - ${f.fullName}`;
+        if (f.id === currentFarmerId) opt.selected = true;
+        farmerSelect.appendChild(opt);
+      });
     }
   } catch (err) {
-    console.error('Failed to load form configs', err);
+    console.error('Error loading farmers filter:', err);
   }
 }
 
-function switchRole(role) {
-  currentRole = role;
-  document.querySelectorAll('.role-tab').forEach(tab => {
-    tab.classList.toggle('active', tab.textContent.includes(getRoleDisplayName(role)));
-  });
-  document.getElementById('role-badge').textContent = role;
-  renderRoleForm(role);
+function onFarmerFilterChanged() {
+  currentFarmerId = document.getElementById('filter-farmer').value;
+  loadDashboardOverview();
 }
 
-function getRoleDisplayName(role) {
-  switch (role) {
-    case 'FARMER': return 'Petani';
-    case 'PROCESSOR': return 'Pengolah';
-    case 'WAREHOUSE_EXPORTER': return 'Gudang';
-    case 'ROASTERY': return 'Roastery';
-    case 'VERIFIER_AUDITOR': return 'Auditor';
-    default: return role;
-  }
+function onGroupFilterChanged() {
+  loadDashboardOverview();
 }
 
-function renderRoleForm(role) {
-  if (!roleConfigs || !roleConfigs[role]) return;
-  const config = roleConfigs[role];
-  const container = document.getElementById('dynamic-form-fields');
-  container.innerHTML = '';
+function onPeriodFilterChanged() {
+  currentPeriod = document.getElementById('filter-period').value;
+  loadDashboardOverview();
+}
 
-  config.steps.forEach(step => {
-    const stepBox = document.createElement('div');
-    stepBox.className = 'form-step-box';
-    stepBox.style.marginBottom = '16px';
-    stepBox.style.border = '1px solid #dee2e6';
-    stepBox.style.borderRadius = '6px';
-    stepBox.style.padding = '12px 14px';
+// ----------------------------------------------------------------------------
+// TAB 1: Dashboard Overview (CT-4CI, CT-CI, CT-SDI, IDSM)
+// ----------------------------------------------------------------------------
+async function loadDashboardOverview() {
+  try {
+    const res = await fetch(`${API_BASE}/api/dashboard/overview?farmerId=${currentFarmerId}&period=${currentPeriod}`, {
+      headers: { 'X-Actor-Role': currentRole, 'X-Actor-Id': currentActorId }
+    });
+    const data = await res.json();
+    if (!data.success) return;
 
-    const header = document.createElement('div');
-    header.style.fontWeight = '700';
-    header.style.fontSize = '13px';
-    header.style.color = '#1b4332';
-    header.style.marginBottom = '8px';
-    header.textContent = `Langkah ${step.stepNumber}: ${step.stepTitle}`;
-    stepBox.appendChild(header);
+    const { indices, groupOverview } = data;
+    const ct4ci = indices.ct4ci;
 
-    const desc = document.createElement('div');
-    desc.style.fontSize = '11px';
-    desc.style.color = '#6c757d';
-    desc.style.marginBottom = '12px';
-    desc.textContent = step.description;
-    stepBox.appendChild(desc);
+    // Render CT-4CI Score
+    if (ct4ci) {
+      document.getElementById('score-ct4ci').textContent = ct4ci.score !== null ? `${ct4ci.score}%` : 'N/A';
+      document.getElementById('score-coverage').textContent = ct4ci.coverage !== null ? `${ct4ci.coverage}%` : '0%';
+      document.getElementById('badge-status-ct4ci').textContent = ct4ci.calculationStatus;
+      document.getElementById('badge-status-ct4ci').className = `badge ${ct4ci.calculationStatus === 'CALCULATED' ? 'badge-pass' : 'badge-pending'}`;
+      document.getElementById('metric-summary-counts').textContent =
+        `${ct4ci.compliantCount} Sesuai / ${ct4ci.applicableCount} Berlaku (Total ${ct4ci.totalInventory} Checkpoint)`;
 
-    step.fields.forEach(f => {
-      const group = document.createElement('div');
-      group.className = 'form-group';
+      // Major Gate Banner
+      const gateBanner = document.getElementById('major-gate-banner');
+      const gateText = document.getElementById('major-gate-text');
+      const gateSub = document.getElementById('major-gate-sub');
 
-      const label = document.createElement('label');
-      label.textContent = f.label;
-      group.appendChild(label);
-
-      let input;
-      if (f.type === 'select') {
-        input = document.createElement('select');
-        input.name = f.name;
-        f.options.forEach(opt => {
-          const o = document.createElement('option');
-          o.value = opt;
-          o.textContent = opt;
-          input.appendChild(o);
-        });
-      } else if (f.type === 'boolean') {
-        input = document.createElement('select');
-        input.name = f.name;
-        const opt1 = document.createElement('option'); opt1.value = 'true'; opt1.textContent = 'Ya (Terpenuhi)';
-        const opt2 = document.createElement('option'); opt2.value = 'false'; opt2.textContent = 'Tidak';
-        input.appendChild(opt1);
-        input.appendChild(opt2);
-      } else if (f.type === 'textarea') {
-        input = document.createElement('textarea');
-        input.name = f.name;
-        input.rows = 2;
+      if (ct4ci.majorGateStatus === 'PASSED') {
+        gateBanner.className = 'gate-banner PASSED';
+        gateText.textContent = 'MEMENUHI SYARAT (MAJOR GATE PASSED)';
+        gateSub.textContent = 'Seluruh kriteria Major yang berlaku terbukti sesuai dengan bukti memadai.';
       } else {
-        input = document.createElement('input');
-        input.name = f.name;
-        input.type = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
-        if (f.min !== undefined) input.min = f.min;
-        if (f.max !== undefined) input.max = f.max;
-        if (f.step !== undefined) input.step = f.step;
+        gateBanner.className = 'gate-banner UNRESOLVED';
+        gateText.textContent = 'BELUM MEMENUHI SYARAT (MAJOR GATE UNRESOLVED)';
+        gateSub.textContent =
+          `${ct4ci.majorStats.nonCompliant} Major Terbukti Gagal | ${ct4ci.majorStats.insufficientEvidence} Major Kurang Bukti | ${ct4ci.majorStats.undecidedApplicability} Major Belum Diputuskan`;
       }
 
-      input.id = `field_${f.name}`;
-      group.appendChild(input);
-      stepBox.appendChild(group);
+      // Dimensions
+      const dims = ct4ci.dimensionBreakdown || {};
+      if (dims.ECONOMIC) document.getElementById('dim-score-econ').textContent = `${dims.ECONOMIC.readinessScore || 0}%`;
+      if (dims.SOCIAL) document.getElementById('dim-score-soc').textContent = `${dims.SOCIAL.readinessScore || 0}%`;
+      if (dims.ENVIRONMENTAL) document.getElementById('dim-score-env').textContent = `${dims.ENVIRONMENTAL.readinessScore || 0}%`;
+    }
+
+    // CT-CCI & CT-SDI
+    if (indices.ctCci) {
+      document.getElementById('score-ct-cci').textContent = indices.ctCci.score.toFixed(2);
+    }
+    if (indices.ctSdi) {
+      document.getElementById('score-ct-sdi').textContent = indices.ctSdi.score.toFixed(2);
+    }
+
+    // CT-IDSM Rules
+    renderIdsmRules(currentFarmerId, period);
+
+    // Group Overview Metrics
+    if (groupOverview) {
+      const gBox = document.getElementById('group-metrics-summary');
+      gBox.innerHTML = `
+        <div class="metric-box">
+          <div class="metric-val">${groupOverview.totalFarmers}</div>
+          <div class="metric-lbl">Total Petani Terdaftar</div>
+          <div class="metric-sub">Koperasi Solok & Kintamani</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">${groupOverview.totalPlots}</div>
+          <div class="metric-lbl">Total Petak Kebun</div>
+          <div class="metric-sub">Terpetakan Koordinat</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val">${groupOverview.totalAreaHa} Ha</div>
+          <div class="metric-lbl">Luas Lahan Terdata</div>
+          <div class="metric-sub">Survei GPS Lapangan</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-val ${groupOverview.openCapasCount > 0 ? 'alert' : 'success'}">${groupOverview.openCapasCount}</div>
+          <div class="metric-lbl">Temuan CAPA Terbuka</div>
+          <div class="metric-sub">Perlu Tindakan Perbaikan</div>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('Error loading dashboard overview:', err);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// CT-IDSM Rules Renderer
+// ----------------------------------------------------------------------------
+async function renderIdsmRules(farmerId, period) {
+  try {
+    const res = await fetch(`${API_BASE}/api/calculation/ct4ci`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmerId, period, isSimulation: true })
+    });
+    const json = await res.json();
+    if (!json.success || !json.snapshot.idsmRules) return;
+
+    const container = document.getElementById('idsm-rules-container');
+    container.innerHTML = '';
+
+    json.snapshot.idsmRules.forEach(rule => {
+      const isTriggered = rule.status === 'TRIGGERED';
+      const isNotApplicable = rule.status === 'NOT_APPLICABLE';
+      const box = document.createElement('div');
+      box.style.border = `1px solid ${isTriggered ? '#fca5a5' : '#e2e8f0'}`;
+      box.style.background = isTriggered ? '#fff1f2' : (isNotApplicable ? '#f8fafc' : '#f0fdf4');
+      box.style.borderRadius = '8px';
+      box.style.padding = '12px 14px';
+
+      box.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <strong style="font-size: 13px; color: #1e293b;">${rule.ruleId}: ${rule.ruleName}</strong>
+          <span class="badge ${isTriggered ? 'badge-fail' : (isNotApplicable ? 'badge-minor' : 'badge-pass')}">${rule.status}</span>
+        </div>
+        <div style="font-size: 11px; color: #475569; margin-bottom: 4px;">${rule.reason}</div>
+        <div style="font-size: 11px; font-weight: 600; color: ${isTriggered ? '#991b1b' : '#166534'};">
+          💡 Rekomendasi: ${rule.recommendations}
+        </div>
+      `;
+      container.appendChild(box);
+    });
+  } catch (err) {
+    console.error('Error rendering IDSM rules:', err);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Presets Controller (Screenshot reproduction, 100%, etc.)
+// ----------------------------------------------------------------------------
+async function loadSimulationPreset(presetType) {
+  try {
+    const res = await fetch(`${API_BASE}/api/simulation/load-preset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preset: presetType, farmerId: currentFarmerId, period: currentPeriod })
+    });
+    const json = await res.json();
+    if (json.success) {
+      await loadDashboardOverview();
+      await loadCheckpoints();
+      switchTab('dashboard-indices');
+      alert(`Skenario '${presetType}' berhasil dimuat dari database!\nSkor CT-4CI: ${json.snapshot.ct4ciScore}%, EC: ${json.snapshot.evidenceCoveragePct}%`);
+    }
+  } catch (err) {
+    alert('Gagal memuat preset: ' + err.message);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 2: Kelompok Tani List
+// ----------------------------------------------------------------------------
+async function loadGroupsList() {
+  const container = document.getElementById('groups-list-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/groups`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode Organisasi</th>
+            <th>Nama Kelompok Tani</th>
+            <th>Wilayah Administratif</th>
+            <th>Penanggung Jawab (PIC)</th>
+            <th>Jasa Titik Kumpul</th>
+            <th>Pagu Anggaran CAPA</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    json.groups.forEach(g => {
+      html += `
+        <tr>
+          <td><strong>${g.businessId}</strong></td>
+          <td>${g.name}</td>
+          <td>${g.village}, ${g.subDistrict}, ${g.district}, ${g.province}</td>
+          <td>${g.pic} (${g.phone || '-'})</td>
+          <td><span class="badge badge-pass">Rp ${g.serviceChargePerKgIdr || 500} / kg</span></td>
+          <td>Rp ${(g.budgetAllocatedIdr || 0).toLocaleString('id-ID')}</td>
+          <td><span class="badge badge-pass">AKTIF</span></td>
+        </tr>
+      `;
     });
 
-    container.appendChild(stepBox);
-  });
-}
-
-// Preset Handlers
-function loadPreset(presetKey) {
-  switch (presetKey) {
-    case 'section7':
-      currentAssessmentData = {
-        assessment: {
-          assessment_id: 'ASM-PILOT-SEC7',
-          actor_id: 'ORG-PROCESSOR-SOLOK',
-          period_start: '2026-06-01',
-          period_end: '2026-06-30',
-          system_boundary: 'PROCESSING_FACILITY',
-          stage: 'PROCESSOR',
-          process_type: 'FULL_WASHED',
-          linked_lot_ids: ['LOT-CHERRY-001', 'LOT-GB-001']
-        },
-        material_input: [
-          { flow_id: 'FLOW-MAT-01', material_type: 'SUPPORT_MATERIALS', total_kg: 150, circular_kg: 70, basis: 'MEASURED', evidence_id: 'EVD-01' }
-        ],
-        byproduct_origin: [
-          { origin_flow_id: 'ORIGIN-01', byproduct_type: 'PULP', generated_dry_kg: 4500, wet_kg: 18000, moisture_pct: 75 }
-        ],
-        byproduct_destination: [
-          { terminal_flow_id: 'DEST-01', origin_flow_id: 'ORIGIN-01', pathway: 'MATERIAL_BIOLOGICAL', destination_detail: 'Ekstrak cascara pangan', utilized_dry_kg: 3500, actual_use_date: '2026-06-15', evidence_id: 'EVD-USE-01' },
-          { terminal_flow_id: 'DEST-02', origin_flow_id: 'ORIGIN-01', pathway: 'ENERGY_RECOVERY', destination_detail: 'Briket biomassa', utilized_dry_kg: 500, actual_use_date: '2026-06-20', evidence_id: 'EVD-USE-02' },
-          { terminal_flow_id: 'DEST-03', origin_flow_id: 'ORIGIN-01', pathway: 'DISPOSAL_OR_UNUSED', destination_detail: 'Landfill / dibuang', utilized_dry_kg: 500, actual_use_date: null }
-        ],
-        utilities: {
-          water_new_l: 8000,
-          water_reused_l: 3000,
-          energy_total_kwh_eq: 1200,
-          energy_renewable_recovered_union_kwh_eq: 300
-        },
-        indicator_observation: [
-          { indicator_code: 'E1', raw_value: 8.0, unit: 'L/kg' },
-          { indicator_code: 'E2', raw_value: 1.2, unit: 'kWh/kg' },
-          { indicator_code: 'E3', numerator: 3, denominator: 3, unit: 'items' },
-          { indicator_code: 'S1', raw_value: 1, unit: 'compliance' },
-          { indicator_code: 'S2', numerator: 9, denominator: 10, unit: 'workers' },
-          { indicator_code: 'S3', numerator: 2, denominator: 3, unit: 'items' },
-          { indicator_code: 'Ec1', revenue: 100000000, cost: 85000000, unit: 'IDR' },
-          { indicator_code: 'Ec2', numerator: 8, denominator: 10, unit: 'transactions' },
-          { indicator_code: 'Ec3', numerator: 950, denominator: 1000, unit: 'kg' },
-          { indicator_code: 'G1', numerator: 9, denominator: 10, unit: 'transfers' },
-          { indicator_code: 'G2', numerator: 4, denominator: 4, unit: 'records' },
-          { indicator_code: 'G3', numerator: 2, denominator: 3, unit: 'actions' }
-        ],
-        safeguards: [
-          { issue_code: 'FORCED_LABOR', status: 'PASS' },
-          { issue_code: 'CHILD_LABOR', status: 'PASS' },
-          { issue_code: 'DEFORESTATION', status: 'PASS' },
-          { issue_code: 'BANNED_PESTICIDES', status: 'PASS' },
-          { issue_code: 'SEVERE_POLLUTION', status: 'PASS' }
-        ]
-      };
-      break;
-
-    case 'energyMissing':
-      loadPreset('section7');
-      currentAssessmentData.utilities.energy_total_kwh_eq = null; // RE null -> CCI DRAFT
-      break;
-
-    case 'noSupport':
-      loadPreset('section7');
-      currentAssessmentData.material_input = []; // CMI NOT_APPLICABLE
-      break;
-
-    case 'destinationExceeds':
-      loadPreset('section7');
-      currentAssessmentData.byproduct_destination[0].utilized_dry_kg = 4200; // Total 5200 > 4500
-      break;
-
-    case 'cascaraNades':
-      loadPreset('section7');
-      currentAssessmentData.byproduct_origin = [
-        { origin_flow_id: 'ORIGIN-CASCARA', byproduct_type: 'CASCARA', generated_dry_kg: 100, wet_kg: 125, moisture_pct: 20 }
-      ];
-      currentAssessmentData.byproduct_destination = [
-        { terminal_flow_id: 'DEST-NADES', origin_flow_id: 'ORIGIN-CASCARA', pathway: 'MATERIAL_BIOLOGICAL', destination_detail: 'Ekstrak pasta gigi cascara (NADES)', utilized_dry_kg: 15, added_solvent_kg: 135, actual_use_date: '2026-06-15', evidence_id: 'EVD-NADES' },
-        { terminal_flow_id: 'DEST-COMPOST', origin_flow_id: 'ORIGIN-CASCARA', pathway: 'MATERIAL_BIOLOGICAL', destination_detail: 'Kompos', utilized_dry_kg: 75, actual_use_date: '2026-06-18', evidence_id: 'EVD-COMP' }
-      ];
-      break;
-
-    case 'safeguardFail':
-      loadPreset('section7');
-      currentAssessmentData.safeguards[1].status = 'FAIL'; // CHILD_LABOR FAIL -> BLOCKED
-      break;
-
-    case 'safeguardUnknown':
-      loadPreset('section7');
-      currentAssessmentData.safeguards[3].status = 'UNKNOWN'; // BANNED_PESTICIDES UNKNOWN -> DRAFT
-      break;
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
   }
-
-  triggerCalculation();
 }
 
-async function triggerCalculation() {
-  if (!currentAssessmentData) return;
+// ----------------------------------------------------------------------------
+// TAB 3: Farmers List & Registration
+// ----------------------------------------------------------------------------
+async function loadFarmersList() {
+  const container = document.getElementById('farmers-list-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/farmers`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedFarmers = json.farmers;
+    document.getElementById('farmer-count-badge').textContent = `${cachedFarmers.length} Petani`;
+
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Nama Petani</th>
+            <th>Desa / Nagari</th>
+            <th>Peran</th>
+            <th>Jumlah Plot</th>
+            <th>Luas (Ha)</th>
+            <th>CT-4CI</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    cachedFarmers.forEach(f => {
+      const snap = f.latestSnapshot;
+      html += `
+        <tr>
+          <td><strong>${f.farmerCode}</strong></td>
+          <td>${f.fullName}</td>
+          <td>${f.village}, ${f.district}</td>
+          <td><span class="badge badge-minor">${f.farmRole}</span></td>
+          <td>${f.plotCount} Petak</td>
+          <td>${f.totalAreaHa} Ha</td>
+          <td>
+            ${snap && snap.ct4ciScore !== null ? `<strong>${snap.ct4ciScore}%</strong>` : '<span style="color:#94a3b8;">Belum dihitung</span>'}
+          </td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="selectFarmerForDetail('${f.id}')">Pilih</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+function selectFarmerForDetail(farmerId) {
+  currentFarmerId = farmerId;
+  const sel = document.getElementById('filter-farmer');
+  if (sel) sel.value = farmerId;
+  loadDashboardOverview();
+  switchTab('dashboard-indices');
+}
+
+async function submitFarmerRegistration() {
+  const payload = {
+    groupId: document.getElementById('reg-farmer-group').value,
+    farmerCode: document.getElementById('reg-farmer-code').value.trim(),
+    fullName: document.getElementById('reg-farmer-name').value.trim(),
+    province: document.getElementById('reg-farmer-prov').value.trim(),
+    district: document.getElementById('reg-farmer-dist').value.trim(),
+    subDistrict: document.getElementById('reg-farmer-subdist').value.trim(),
+    village: document.getElementById('reg-farmer-village').value.trim(),
+    farmRole: document.getElementById('reg-farmer-role').value,
+    smartphoneAccess: document.getElementById('reg-farmer-phone-access').value,
+    preferredConfirmationMethod: document.getElementById('reg-farmer-confirm-method').value,
+    dataConsentGiven: document.getElementById('reg-farmer-consent').checked,
+    dataConsentMethod: 'DIGITAL_APP'
+  };
 
   try {
-    const res = await fetch('/api/calculation/execute', {
+    const res = await fetch(`${API_BASE}/api/farmers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': currentRole, 'X-Actor-Id': currentActorId },
+      body: JSON.stringify(payload)
+    });
+    const json = await res.json();
+    if (json.success) {
+      alert(`Petani '${json.farmer.fullName}' (${json.farmer.farmerCode}) berhasil didaftarkan!`);
+      document.getElementById('farmer-reg-form').reset();
+      await loadFilterOptions();
+      await loadFarmersList();
+    } else {
+      alert(`Gagal: ${json.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 4: Farm & Plots Table
+// ----------------------------------------------------------------------------
+async function loadPlotsTable() {
+  const container = document.getElementById('plots-table-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/plots`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedPlots = json.plots;
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode Petak</th>
+            <th>Pemilik Petani</th>
+            <th>Koordinat GPS</th>
+            <th>Polygon</th>
+            <th>Luas (Ha)</th>
+            <th>Spesies & Varietas</th>
+            <th>Penaung</th>
+            <th>Status Duplikasi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    cachedPlots.forEach(p => {
+      const farmer = cachedFarmers.find(f => f.id === p.farmerId);
+      const hasCoords = p.latitude && p.longitude;
+      const hasPoly = Boolean(p.polygonGeoJson);
+
+      html += `
+        <tr>
+          <td><strong>${p.plotCode}</strong></td>
+          <td>${farmer ? farmer.fullName : p.farmerId}</td>
+          <td>${hasCoords ? `${p.latitude.toFixed(4)}, ${p.longitude.toFixed(4)}` : '<span style="color:red;">Kosong</span>'}</td>
+          <td>${hasPoly ? '<span class="badge badge-pass">GeoJSON Ada</span>' : '<span class="badge badge-minor">Titik Tunggal</span>'}</td>
+          <td>${p.areaHa} ${p.areaUnit}</td>
+          <td>${p.coffeeSpecies} (${p.varieties || '-'})</td>
+          <td><span style="font-size:11px;">${p.shadeTreesDescription || '-'}</span></td>
+          <td>
+            ${p.isDuplicateFlagged ?
+              `<span class="badge badge-fail" title="${p.duplicateNotes || 'Duplikasi'}">⚠️ Duplikat</span>` :
+              `<span class="badge badge-pass">Valid</span>`}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 5: Cultivation Practices Wizard (Topics A-E)
+// ----------------------------------------------------------------------------
+let cachedPracticesConfig = [];
+async function loadPracticesConfig() {
+  try {
+    const res = await fetch(`${API_BASE}/api/practices/config`);
+    const json = await res.json();
+    if (json.success) cachedPracticesConfig = json.config;
+  } catch (err) {
+    console.error('Error loading practices config:', err);
+  }
+}
+
+async function loadPracticesList() {
+  const container = document.getElementById('practices-wizard-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/practices?farmerId=${currentFarmerId}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedPractices = json.practices;
+
+    let html = `
+      <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 13px; font-weight: 700;">Catatan Praktik Terdata untuk Petani Aktif:</span>
+        <button class="btn btn-primary btn-sm" onclick="showNewPracticeDialog()">+ Tambah Catatan Praktik Baru</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kategori</th>
+            <th>Tgl Observasi</th>
+            <th>Sumber Info</th>
+            <th>Status Konfirmasi Petani</th>
+            <th>Status Verifikasi ICS</th>
+            <th>Bahan Kimia Terlarang</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    cachedPractices.forEach(pr => {
+      html += `
+        <tr>
+          <td><strong>${pr.category}</strong></td>
+          <td>${pr.observationDate}</td>
+          <td><span class="badge badge-minor">${pr.sourceInfo}</span></td>
+          <td>
+            <span class="badge ${pr.farmerConfirmationStatus === 'CONFIRMED' ? 'badge-pass' : 'badge-pending'}">
+              ${pr.farmerConfirmationStatus}
+            </span>
+          </td>
+          <td>
+            <span class="badge ${pr.verificationStatus === 'VERIFIED' ? 'badge-pass' : 'badge-pending'}">
+              ${pr.verificationStatus}
+            </span>
+          </td>
+          <td>
+            ${pr.hasBannedPesticide ?
+              '<span class="badge badge-fail">🚨 TERDETEKSI</span>' :
+              '<span class="badge badge-pass">Bebas</span>'}
+          </td>
+          <td>
+            ${pr.farmerConfirmationStatus === 'PENDING' && currentRole === 'FARMER' ?
+              `<button class="btn btn-primary btn-sm" onclick="confirmPractice('${pr.id}', 'CONFIRMED')">Konfirmasi</button>` :
+              `<button class="btn btn-secondary btn-sm" onclick="viewPracticeDetail('${pr.id}')">Lihat</button>`}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+async function confirmPractice(practiceId, status) {
+  try {
+    const res = await fetch(`${API_BASE}/api/practices/${practiceId}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': 'FARMER', 'X-Actor-Id': currentActorId },
+      body: JSON.stringify({ status, method: 'DIGITAL_APP', notes: 'Dikonfirmasi langsung oleh petani via sistem' })
+    });
+    const json = await res.json();
+    if (json.success) {
+      alert(`Praktik budidaya telah berhasil dikonfirmasi oleh petani.`);
+      loadPracticesList();
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 6: Kunjungan ICS Table
+// ----------------------------------------------------------------------------
+function loadInspectionsList() {
+  const container = document.getElementById('inspections-table-container');
+  container.innerHTML = `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Kode Inspeksi</th>
+          <th>Tanggal</th>
+          <th>Tipe Kunjungan</th>
+          <th>Petugas ICS</th>
+          <th>Petani</th>
+          <th>Konfirmasi Petani</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>INSP-SLK-2026-01</strong></td>
+          <td>12 April 2026</td>
+          <td><span class="badge badge-minor">Rutin Tahunan</span></td>
+          <td>Andi Saputra</td>
+          <td>Pak Syamsul Arifin</td>
+          <td><span class="badge badge-pass">Tanda Tangan Fisik</span></td>
+          <td><span class="badge badge-pass">TERVERIFIKASI</span></td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+// ----------------------------------------------------------------------------
+// TAB 7: Bukti & Verifikasi Table
+// ----------------------------------------------------------------------------
+async function loadEvidenceTable() {
+  const container = document.getElementById('evidence-table-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/evidence?farmerId=${currentFarmerId}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedEvidences = json.evidences;
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode Bukti</th>
+            <th>Judul & Jenis Dokumen</th>
+            <th>File URI / Hash SHA-256</th>
+            <th>Checkpoint Terkait</th>
+            <th>Keputusan Kecukupan Bukti</th>
+            <th>Verifier</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    cachedEvidences.forEach(ev => {
+      const cps = typeof ev.checkpointIdsJson === 'string' ? JSON.parse(ev.checkpointIdsJson || '[]') : (ev.checkpointIdsJson || []);
+      const isSufficient = ev.sufficiencyStatus === 'SUFFICIENT';
+
+      html += `
+        <tr>
+          <td><strong>${ev.evidenceCode}</strong></td>
+          <td>
+            <strong>${ev.title}</strong><br>
+            <span style="font-size:10px; color:var(--text-muted);">${ev.docType}</span>
+          </td>
+          <td>
+            <a href="${ev.fileUri}" target="_blank" style="font-size:11px; color:var(--primary);">${ev.fileUri}</a><br>
+            <span style="font-size:9px; color:#64748b;">SHA: ${(ev.sha256Hash || '').substring(0, 16)}...</span>
+          </td>
+          <td>
+            ${cps.map(c => `<span class="badge badge-minor">${c}</span>`).join(' ')}
+          </td>
+          <td>
+            <span class="badge ${isSufficient ? 'badge-pass' : 'badge-pending'}">
+              ${ev.sufficiencyStatus}
+            </span>
+          </td>
+          <td>${ev.verifierUserId || '-'}</td>
+          <td>
+            ${currentRole === 'VERIFIER' ?
+              `<button class="btn btn-primary btn-sm" onclick="setEvidenceDecision('${ev.id}')">Ubah Status</button>` :
+              `<span style="font-size:11px; color:#64748b;">Hanya Verifier</span>`}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+async function setEvidenceDecision(evidenceId) {
+  const newStatus = prompt('Pilih status kecukupan bukti (SUFFICIENT, INSUFFICIENT, PENDING_VERIFICATION):', 'SUFFICIENT');
+  if (!newStatus) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/evidence/${evidenceId}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': 'VERIFIER', 'X-Actor-Id': currentActorId },
+      body: JSON.stringify({ sufficiencyStatus: newStatus.trim().toUpperCase(), notes: 'Keputusan verifier manual' })
+    });
+    const json = await res.json();
+    if (json.success) {
+      alert('Status bukti berhasil diperbarui.');
+      loadEvidenceTable();
+      loadDashboardOverview();
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 8: Penilaian 108 Checkpoints Table (P001 - P108)
+// ----------------------------------------------------------------------------
+async function loadCheckpoints() {
+  try {
+    const res = await fetch(`${API_BASE}/api/checkpoints?module=PRODUCER`);
+    const json = await res.json();
+    if (json.success) {
+      cachedCheckpoints = json.checkpoints;
+    }
+  } catch (err) {
+    console.error('Error loading checkpoints:', err);
+  }
+}
+
+async function renderCheckpointsTable() {
+  const container = document.getElementById('checkpoints-table-container');
+  const dimFilter = document.getElementById('checkpoint-dim-filter')?.value || 'ALL';
+
+  try {
+    // Fetch assessments from DB
+    const res = await fetch(`${API_BASE}/api/assessments?farmerId=${currentFarmerId}&period=${currentPeriod}`);
+    const json = await res.json();
+    cachedAssessments = json.assessments || [];
+    const assMap = new Map(cachedAssessments.map(a => [a.checkpointCode, a]));
+
+    let filtered = cachedCheckpoints;
+    if (dimFilter !== 'ALL') {
+      filtered = cachedCheckpoints.filter(c => c.dimension === dimFilter);
+    }
+
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode</th>
+            <th>Dimensi & Referensi</th>
+            <th>Judul Checkpoint</th>
+            <th>Level</th>
+            <th>Klasifikasi</th>
+            <th>Applicability (Ai)</th>
+            <th>Bukti (Vi)</th>
+            <th>Kesesuaian (Ci)</th>
+            <th>Hasil (Ai×Ci×Vi)</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    filtered.forEach(cp => {
+      const ass = assMap.get(cp.checkpointCode);
+      const isApplicable = !ass || ass.applicability === 'APPLICABLE';
+      const isNotApplicable = ass && ass.applicability === 'NOT_APPLICABLE';
+      const isSufficient = ass && ass.evidenceSufficiency === 'SUFFICIENT';
+      const isCompliant = ass && ass.complianceResult === 'COMPLIANT';
+      const isNonCompliant = ass && ass.complianceResult === 'NON_COMPLIANT';
+
+      const Ai = isNotApplicable ? 0 : 1;
+      const Vi = isSufficient ? 1 : 0;
+      const Ci = isCompliant ? 1 : 0;
+      const product = Ai * Ci * Vi;
+
+      html += `
+        <tr style="cursor: pointer;" onclick="openDrillDownModal('${cp.checkpointCode}')">
+          <td><strong>${cp.checkpointCode}</strong></td>
+          <td>
+            <span style="font-size:11px; font-weight:600;">${cp.dimension}</span><br>
+            <span style="font-size:10px; color:var(--text-muted);">${cp.officialRef}</span>
+          </td>
+          <td>
+            <strong>${cp.title}</strong><br>
+            <span style="font-size:10px; color:#64748b;">${cp.requiredEvidenceDescription.substring(0, 60)}...</span>
+            ${cp.validationStatus === 'PENDING_SOURCE_VALIDATION' ?
+              '<br><span class="badge badge-pending-val">Menunggu validasi sumber</span>' : ''}
+          </td>
+          <td><span style="font-size:10px;">${cp.assessmentLevel.replace('LEVEL_', 'L')}</span></td>
+          <td>
+            ${cp.isMajor ? '<span class="badge badge-major">MAJOR</span>' : '<span class="badge badge-minor">MINOR</span>'}
+          </td>
+          <td>
+            <span class="badge ${isNotApplicable ? 'badge-minor' : 'badge-pass'}">
+              ${isNotApplicable ? 'NOT APPLICABLE (0)' : 'APPLICABLE (1)'}
+            </span>
+          </td>
+          <td>
+            <span class="badge ${isSufficient ? 'badge-pass' : 'badge-pending'}">
+              ${isSufficient ? 'CUKUP (1)' : 'BELUM (0)'}
+            </span>
+          </td>
+          <td>
+            ${isCompliant ? '<span class="badge badge-pass">SESUAI (1)</span>' :
+              (isNonCompliant ? '<span class="badge badge-fail">TIDAK SESUAI (0)</span>' :
+              '<span class="badge badge-pending">BELUM DITENTUKAN</span>')}
+          </td>
+          <td>
+            <strong style="color: ${product === 1 ? '#16a34a' : '#dc2626'}; font-size: 13px;">${product}</strong>
+          </td>
+          <td>
+            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); openDrillDownModal('${cp.checkpointCode}')">Detail</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Interactive Checkpoint Drill-Down Modal
+// Alur: Ringkasan → Checkpoint → Pertanyaan / Data Mentah → Bukti → Keputusan Verifier → CAPA
+// ----------------------------------------------------------------------------
+function openDrillDownModal(checkpointCode) {
+  const cp = cachedCheckpoints.find(c => c.checkpointCode === checkpointCode);
+  if (!cp) return;
+
+  const ass = cachedAssessments.find(a => a.checkpointCode === checkpointCode);
+  const relatedEvidences = cachedEvidences.filter(e => (e.checkpointIdsJson || '').includes(checkpointCode));
+  const openCapas = globalDataStore ? [] : [];
+
+  const modal = document.getElementById('drill-down-modal');
+  const content = document.getElementById('drill-down-content');
+
+  content.innerHTML = `
+    <div style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span class="badge ${cp.isMajor ? 'badge-major' : 'badge-minor'}">${cp.isMajor ? 'MAJOR CHECKPOINT' : 'MINOR CHECKPOINT'}</span>
+        <span style="font-size: 11px; color: var(--text-muted);">${cp.sourceDoc} - ${cp.officialRef}</span>
+      </div>
+      <h3 style="color: var(--primary); margin-top: 6px;">${cp.checkpointCode}: ${cp.title}</h3>
+      <div style="font-size: 12px; color: #475569;">Dimensi: <strong>${cp.dimension}</strong> | Level: <strong>${cp.assessmentLevel}</strong></div>
+    </div>
+
+    <!-- Step 1: Pertanyaan Lapangan & Persyaratan -->
+    <div class="card" style="padding: 12px; margin-bottom: 12px; background: #f8fafc;">
+      <strong style="font-size: 12px; color: var(--primary);">1. Pertanyaan Lapangan & SOP:</strong>
+      <p style="font-size: 12px; margin-top: 4px;">${cp.fieldQuestionPrompt}</p>
+      <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+        <strong>Bukti Wajib:</strong> ${cp.requiredEvidenceDescription}
+      </div>
+    </div>
+
+    <!-- Step 2: Bukti Digital Terlampir -->
+    <div class="card" style="padding: 12px; margin-bottom: 12px;">
+      <strong style="font-size: 12px; color: var(--primary);">2. Bukti Digital Terlampir (${relatedEvidences.length} Berkas):</strong>
+      ${relatedEvidences.length === 0 ?
+        '<p style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Belum ada dokumen/foto bukti khusus yang terhubung.</p>' :
+        relatedEvidences.map(e => `
+          <div style="font-size: 11px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0;">
+            📁 <strong>${e.title}</strong> (${e.docType}) - Status: <span class="badge ${e.sufficiencyStatus === 'SUFFICIENT' ? 'badge-pass' : 'badge-pending'}">${e.sufficiencyStatus}</span>
+          </div>
+        `).join('')}
+    </div>
+
+    <!-- Step 3: Keputusan Verifier -->
+    <div class="card" style="padding: 12px; margin-bottom: 12px;">
+      <strong style="font-size: 12px; color: var(--primary);">3. Keputusan Verifikasi Verifier ICS:</strong>
+      <div style="margin-top: 8px; font-size: 12px; line-height: 1.6;">
+        <div>Status Applicability: <strong>${ass?.applicability || 'APPLICABLE'}</strong> ${ass?.nonApplicabilityReason ? `(Alasan: ${ass.nonApplicabilityReason})` : ''}</div>
+        <div>Kecukupan Bukti: <strong>${ass?.evidenceSufficiency || 'NOT_AVAILABLE'}</strong></div>
+        <div>Hasil Penilaian: <strong style="color: ${ass?.complianceResult === 'COMPLIANT' ? '#16a34a' : '#dc2626'};">${ass?.complianceResult || 'UNDETERMINED'}</strong></div>
+      </div>
+    </div>
+
+    <!-- Step 4: Status CAPA Jika Ada Temuan -->
+    <div class="card" style="padding: 12px; margin-bottom: 16px; background: #fff1f2;">
+      <strong style="font-size: 12px; color: #991b1b;">4. Rencana Tindakan Perbaikan (CAPA):</strong>
+      <p style="font-size: 11px; color: #7f1d1d; margin-top: 4px;">
+        Jika checkpoint ini terbukti tidak sesuai, sistem mewajibkan penerbitan CAPA untuk penyelesaian kesenjangan standar 4C.
+      </p>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 8px;">
+      <button class="btn btn-secondary" onclick="closeDrillDownModal()">Tutup</button>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeDrillDownModal() {
+  document.getElementById('drill-down-modal').classList.remove('active');
+}
+
+// ----------------------------------------------------------------------------
+// TAB 9: Temuan & CAPA Table
+// ----------------------------------------------------------------------------
+async function loadCapaTable() {
+  const container = document.getElementById('capa-table-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/capa`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    cachedCapas = json.capas;
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Kode CAPA</th>
+            <th>Judul Temuan</th>
+            <th>Checkpoint</th>
+            <th>Klasifikasi</th>
+            <th>Rencana Aksi & Tenggat</th>
+            <th>Estimasi Biaya</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    cachedCapas.forEach(c => {
+      const isClosed = c.status === 'CLOSED';
+      html += `
+        <tr>
+          <td><strong>${c.capaCode}</strong></td>
+          <td>
+            <strong>${c.findingTitle}</strong><br>
+            <span style="font-size:10px; color:#64748b;">PJ: ${c.responsiblePerson}</span>
+          </td>
+          <td><span class="badge badge-minor">${c.checkpointCode || c.checkpointId}</span></td>
+          <td><span class="badge ${c.issueType.includes('MAJOR') ? 'badge-major' : 'badge-minor'}">${c.issueType}</span></td>
+          <td>
+            <div style="font-size:11px;">${c.correctiveActionPlan.substring(0, 60)}...</div>
+            <div style="font-size:10px; color:var(--text-muted);">Tenggat: ${c.deadlineDate}</div>
+          </td>
+          <td>Rp ${(c.estimatedCostIdr || 0).toLocaleString('id-ID')}</td>
+          <td>
+            <span class="badge ${isClosed ? 'badge-pass' : (c.status === 'PENDING_VERIFICATION' ? 'badge-pending' : 'badge-fail')}">
+              ${c.status}
+            </span>
+          </td>
+          <td>
+            ${!isClosed && currentRole === 'VERIFIER' ?
+              `<button class="btn btn-primary btn-sm" onclick="closeCapaDialog('${c.id}')">Tutup Temuan</button>` :
+              `<button class="btn btn-secondary btn-sm" onclick="alert('Bukti perbaikan telah terlampir.')">Lihat</button>`}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+async function closeCapaDialog(capaId) {
+  const notes = prompt('Masukkan catatan keputusan penutupan temuan oleh verifier:', 'Bukti fisik telah diperiksa dan dinyatakan memenuhi standar.');
+  if (notes === null) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/capa/${capaId}/verify-closure`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Actor-Role': 'VERIFIER', 'X-Actor-Id': currentActorId },
+      body: JSON.stringify({ accepted: true, notes })
+    });
+    const json = await res.json();
+    if (json.success) {
+      alert('CAPA berhasil ditutup setelah verifikasi bukti.');
+      loadCapaTable();
+      loadDashboardOverview();
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+// ----------------------------------------------------------------------------
+// TAB 10: Audit Trail & Offline Sync
+// ----------------------------------------------------------------------------
+async function loadAuditTrail() {
+  const container = document.getElementById('audit-trail-container');
+  try {
+    const res = await fetch(`${API_BASE}/api/audit-trail`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    let html = '<ul style="list-style: none; padding: 0;">';
+    json.logs.forEach(log => {
+      html += `
+        <li style="padding: 8px 0; border-bottom: 1px solid #e2e8f0; font-size: 11px;">
+          <div style="display: flex; justify-content: space-between;">
+            <strong>${log.actionType} - ${log.entityType} (${log.entityId})</strong>
+            <span style="color:#64748b;">${log.timestamp.split('T')[1].substring(0, 8)}</span>
+          </div>
+          <div style="color: #475569;">Aktor: ${log.actorUserId} (${log.actorRole || 'SYSTEM'}) - Alasan: ${log.changeReason || '-'}</div>
+        </li>
+      `;
+    });
+    html += '</ul>';
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+  }
+}
+
+async function triggerOfflineSync() {
+  const syncInd = document.getElementById('sync-status-indicator');
+  syncInd.innerHTML = '🔄 Menyinkronkan...';
+  syncInd.style.color = '#d97706';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        assessmentData: currentAssessmentData,
-        options: { isEvidenceAudited: true, userRole: currentRole }
+        idempotencyKey: `SYNC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        entityType: 'BATCH_OFFLINE_DRAFT',
+        payload: { syncedRecords: 5 }
       })
     });
-
-    const data = await res.json();
-
-    if (!data.success) {
-      alert(`⚠️ Validasi Gagal: ${data.error}`);
-      renderErrorState(data.error);
-      return;
+    const json = await res.json();
+    if (json.success) {
+      syncInd.innerHTML = '🟢 Tersinkronisasi';
+      syncInd.style.color = '#16a34a';
+      alert('Sinkronisasi offline berhasil diselesaikan. Kunci idempotensi tercatat.');
     }
-
-    renderSnapshotResults(data.snapshot);
-    addSnapshotHistory(data.snapshot);
-
   } catch (err) {
-    alert(`Terjadi kesalahan komunikasi dengan server: ${err.message}`);
+    syncInd.innerHTML = '🔴 Gagal Sinkron';
+    syncInd.style.color = '#dc2626';
+    alert('Gagal sinkronisasi: ' + err.message);
   }
 }
-
-function renderSnapshotResults(snap) {
-  // 1. Status Banner
-  const banner = document.getElementById('status-banner');
-  banner.className = `status-banner status-${snap.status}`;
-  document.getElementById('status-title').textContent = snap.status;
-  document.getElementById('coverage-pct').textContent = `${snap.scores.sdi.coveragePct}%`;
-
-  let subText = '';
-  if (snap.status === 'BLOCKED') subText = '🚫 Publikasi diblokir: Terdeteksi pelanggaran pengaman non-kompensasi';
-  else if (snap.status === 'DRAFT') subText = '⏳ Status DRAFT: Data belum lengkap atau pengaman belum terverifikasi';
-  else if (snap.status === 'VERIFIED') subText = '✅ Terverifikasi: Bukti diaudit dan seluruh pengaman PASS';
-  else if (snap.status === 'PUBLISHED') subText = '🌐 Dipublikasikan ke Paspor Digital Produk (DPP)';
-  else subText = '📋 Lengkap dan siap diperiksa oleh auditor (READY_FOR_REVIEW)';
-  document.getElementById('status-sub').textContent = subText;
-
-  // 2. CCI Score Card (if present)
-  const cciScore = snap.scores.cci.displayScore;
-  const cciDraft = snap.scores.cci.draftScore;
-  const elCciScore = document.getElementById('cci-score');
-  if (elCciScore) elCciScore.textContent = cciScore !== null ? `${cciScore}%` : (cciDraft !== null ? `${cciDraft.toFixed(2)}% (Draft)` : '--');
-  const elCciTier = document.getElementById('cci-tier');
-  if (elCciTier) elCciTier.textContent = snap.scores.cci.category;
-
-  // 3. SDI Score Card (if present)
-  const sdiScore = snap.scores.sdi.displayScore;
-  const sdiDraft = snap.scores.sdi.draftScore;
-  const elSdiScore = document.getElementById('sdi-score');
-  if (elSdiScore) elSdiScore.textContent = sdiScore !== null ? `${sdiScore}%` : (sdiDraft !== null ? `${sdiDraft.toFixed(2)}% (Draft)` : '--');
-  const elSdiTier = document.getElementById('sdi-tier');
-  if (elSdiTier) elSdiTier.textContent = snap.scores.sdi.category;
-
-  // 4. Safeguards Chips
-  const sgContainer = document.getElementById('safeguards-container');
-  sgContainer.innerHTML = '';
-  document.getElementById('safeguard-overall').textContent = snap.safeguards.overallSafeguardStatus;
-
-  for (const [issue, st] of Object.entries(snap.safeguards.issues)) {
-    const chip = document.createElement('div');
-    chip.className = `safeguard-chip safeguard-${st}`;
-    chip.innerHTML = `<span>${formatIssueName(issue)}</span><strong>${st}</strong>`;
-    sgContainer.appendChild(chip);
-  }
-  document.getElementById('safeguard-explanation').textContent = snap.safeguards.explanation;
-
-  // 5. Breakdown Table
-  const tbody = document.getElementById('breakdown-body');
-  tbody.innerHTML = '';
-
-  // CCI Rows
-  const cciComp = snap.scores.cci.componentScores;
-  const effW = snap.scores.cci.effectiveWeights;
-  const cciBreak = snap.scores.cci.breakdownDetails;
-
-  addBreakdownRow(tbody, 'CCI - CMI (Input Material Sirkular)', cciComp.CMI !== null ? (cciComp.CMI * 100).toFixed(2) + '%' : 'N/A', `${(effW.CMI * 100).toFixed(1)}%`, cciComp.CMI !== null ? (cciComp.CMI * effW.CMI * 100).toFixed(2) + '%' : '--', cciBreak.cmi?.note || 'Bahan pendukung terverifikasi');
-  addBreakdownRow(tbody, 'CCI - BVC (Valorisasi Hasil Samping)', cciComp.BVC !== null ? (cciComp.BVC * 100).toFixed(2) + '%' : 'N/A', `${(effW.BVC * 100).toFixed(1)}%`, cciComp.BVC !== null ? (cciComp.BVC * effW.BVC * 100).toFixed(2) + '%' : '--', `Aktual: ${cciBreak.bvc?.actualWeightedNumerator ?? 0} kg / Potensial: ${cciBreak.bvc?.potentialWeightedNumerator ?? 0} kg`);
-  addBreakdownRow(tbody, 'CCI - WC (Pemakaian Ulang Air)', cciComp.WC !== null ? (cciComp.WC * 100).toFixed(2) + '%' : 'N/A', `${(effW.WC * 100).toFixed(1)}%`, cciComp.WC !== null ? (cciComp.WC * effW.WC * 100).toFixed(2) + '%' : '--', cciBreak.wc?.note || 'Meter air baru vs daur ulang');
-  addBreakdownRow(tbody, 'CCI - RE (Energi Terbarukan / Pulih)', cciComp.RE !== null ? (cciComp.RE * 100).toFixed(2) + '%' : 'N/A (Null)', `${(effW.RE * 100).toFixed(1)}%`, cciComp.RE !== null ? (cciComp.RE * effW.RE * 100).toFixed(2) + '%' : '--', cciBreak.re?.note || 'kWh ekuivalen terbarukan union');
-
-  // SDI Rows
-  const dims = snap.scores.sdi.dimensions;
-  addBreakdownRow(tbody, 'SDI - Dimensi Environmental (E)', dims.E ? (dims.E.score ?? dims.E.draftScore)?.toFixed(2) + '%' : '--', '25.0%', dims.E ? ((dims.E.score ?? dims.E.draftScore) * 0.25)?.toFixed(2) + '%' : '--', 'Rerata E1, E2, E3');
-  addBreakdownRow(tbody, 'SDI - Dimensi Social (S)', dims.S ? (dims.S.score ?? dims.S.draftScore)?.toFixed(2) + '%' : '--', '25.0%', dims.S ? ((dims.S.score ?? dims.S.draftScore) * 0.25)?.toFixed(2) + '%' : '--', 'Rerata S1, S2, S3');
-  addBreakdownRow(tbody, 'SDI - Dimensi Economic (Ec)', dims.Ec ? (dims.Ec.score ?? dims.Ec.draftScore)?.toFixed(2) + '%' : '--', '25.0%', dims.Ec ? ((dims.Ec.score ?? dims.Ec.draftScore) * 0.25)?.toFixed(2) + '%' : '--', 'Rerata Ec1, Ec2, Ec3');
-  addBreakdownRow(tbody, 'SDI - Dimensi Governance (G)', dims.G ? (dims.G.score ?? dims.G.draftScore)?.toFixed(2) + '%' : '--', '25.0%', dims.G ? ((dims.G.score ?? dims.G.draftScore) * 0.25)?.toFixed(2) + '%' : '--', 'Rerata G1, G2, G3');
-
-  // 6. Synchronize Charts
-  latestActiveSnapshot = snap;
-  broadcastSnapshotToCharts(snap);
-}
-
-function addBreakdownRow(tbody, name, val, weight, contrib, notes) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><strong>${name}</strong></td>
-    <td>${val}</td>
-    <td>${weight}</td>
-    <td><strong>${contrib}</strong></td>
-    <td style="color: #6c757d; font-size: 11px;">${notes}</td>
-  `;
-  tbody.appendChild(tr);
-}
-
-function formatIssueName(code) {
-  switch (code) {
-    case 'FORCED_LABOR': return 'Kerja Paksa';
-    case 'CHILD_LABOR': return 'Pekerja Anak';
-    case 'DEFORESTATION': return 'Deforestasi';
-    case 'BANNED_PESTICIDES': return 'Pestisida Terlarang';
-    case 'SEVERE_POLLUTION': return 'Pencemaran Berat';
-    default: return code;
-  }
-}
-
-function renderErrorState(errMsg) {
-  const banner = document.getElementById('status-banner');
-  banner.className = 'status-banner status-BLOCKED';
-  document.getElementById('status-title').textContent = 'VALIDATION_ERROR';
-  document.getElementById('coverage-pct').textContent = '0%';
-  document.getElementById('status-sub').textContent = errMsg;
-}
-
-function addSnapshotHistory(snap) {
-  snapshotHistory.unshift(snap);
-  document.getElementById('snapshot-count').textContent = `${snapshotHistory.length} Snapshot`;
-
-  const tbody = document.getElementById('history-body');
-  tbody.innerHTML = '';
-
-  snapshotHistory.slice(0, 10).forEach(s => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><code>${s.snapshot_id.slice(0, 8)}...</code></td>
-      <td>${s.calculated_at.split('T')[1].slice(0, 8)}</td>
-      <td><span class="status-badge" style="font-weight: 700;">${s.status}</span></td>
-      <td><strong>${s.scores.cci.displayScore ?? s.scores.cci.draftScore?.toFixed(2) ?? '--'}</strong></td>
-      <td><strong>${s.scores.sdi.displayScore ?? s.scores.sdi.draftScore?.toFixed(2) ?? '--'}</strong></td>
-      <td>${s.scores.sdi.coveragePct}%</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function switchMainChart(type) {
-  const frame = document.getElementById('chart-frame');
-  const btnCircular = document.getElementById('btn-chart-circular');
-  const btnBar = document.getElementById('btn-chart-bar');
-  const link = document.getElementById('chart-fullscreen-link');
-  if (!frame) return;
-
-  frame.onload = () => {
-    if (latestActiveSnapshot) broadcastSnapshotToCharts(latestActiveSnapshot);
-  };
-
-  if (type === 'circular') {
-    frame.src = 'circular_indices_chart.html';
-    frame.style.height = '640px';
-    if (link) link.href = 'circular_indices_chart.html';
-    if (btnCircular) {
-      btnCircular.style.background = 'var(--primary)';
-      btnCircular.style.color = 'white';
-    }
-    if (btnBar) {
-      btnBar.style.background = 'transparent';
-      btnBar.style.color = 'var(--text-main)';
-    }
-  } else {
-    frame.src = 'bar_indices_chart.html';
-    frame.style.height = '420px';
-    if (link) link.href = 'bar_indices_chart.html';
-    if (btnBar) {
-      btnBar.style.background = 'var(--primary)';
-      btnBar.style.color = 'white';
-    }
-    if (btnCircular) {
-      btnCircular.style.background = 'transparent';
-      btnCircular.style.color = 'var(--text-main)';
-    }
-  }
-}
-
-function broadcastSnapshotToCharts(snap) {
-  if (!snap) return;
-  const frame = document.getElementById('chart-frame');
-  if (frame && frame.contentWindow) {
-    try {
-      frame.contentWindow.postMessage({ type: 'SYNC_SNAPSHOT', snapshot: snap }, '*');
-    } catch (e) {}
-  }
-}
-
-// Receive handshake when chart iframe is loaded
-window.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'IFRAME_READY') {
-    if (latestActiveSnapshot) {
-      broadcastSnapshotToCharts(latestActiveSnapshot);
-    }
-  }
-});
-
-function switchGuideTab(tabId) {
-  document.querySelectorAll('.guide-content-panel').forEach(panel => {
-    panel.classList.remove('active');
-  });
-  document.querySelectorAll('.guide-tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-
-  const targetPanel = document.getElementById(tabId);
-  if (targetPanel) targetPanel.classList.add('active');
-
-  const matchingBtn = Array.from(document.querySelectorAll('.guide-tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
-  if (matchingBtn) matchingBtn.classList.add('active');
-}
-
-
-
