@@ -6,6 +6,8 @@
 
 import { CapaStatus, CapaIssueType } from './types.js';
 
+let capaSequenceCounter = 1;
+
 export class CapaManager {
   constructor(capas = []) {
     this.capas = new Map(capas.map(c => [c.id || c.capaCode, c]));
@@ -19,7 +21,7 @@ export class CapaManager {
       throw new Error('findingTitle, checkpointId, dan scopeId wajib diisi untuk menerbitkan CAPA.');
     }
 
-    const id = data.id || `CAPA-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const id = data.id || `CAPA-${Date.now()}-${capaSequenceCounter++}-${Math.random().toString(36).slice(2, 7)}`;
     const capaCode = data.capaCode || `CAPA-2026-${String(this.capas.size + 1).padStart(3, '0')}`;
 
     // Prevent duplicate open CAPA for the same checkpoint and scope

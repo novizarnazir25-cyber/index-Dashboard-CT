@@ -19,6 +19,7 @@ import {
   ConfirmationMethod,
   SYNCHRONIZED_STAKEHOLDERS
 } from './types.js';
+import { calculateFairtradeReadiness } from '../engine/fairtrade-engine.js';
 
 export class CtDataStore {
   constructor() {
@@ -36,6 +37,14 @@ export class CtDataStore {
     this.auditTrail = [];
     this.offlineDrafts = new Map();
     this.users = new Map();
+
+    // Fairtrade Schema Tables
+    this.entities = new Map();
+    this.fairtradeAssessments = new Map();
+    this.fairtradeResults = new Map();
+    this.nextEntityId = 1;
+    this.nextAssessmentId = 1;
+    this.nextResultId = 1;
 
     this.seedDefaultData();
   }
@@ -591,6 +600,11 @@ export class CtDataStore {
     // 7. Checkpoint Assessments & Screenshot Simulation Fixture
     // ------------------------------------------------------------------------
     this.loadScreenshotSimulationFixture('FARMER-SLK-001', '2026-PANEN-RAYA');
+
+    // ------------------------------------------------------------------------
+    // 8. Fairtrade Entities & Baseline Assessments
+    // ------------------------------------------------------------------------
+    this.seedFairtradeEntitiesAndAssessments();
   }
 
   /**
@@ -773,6 +787,133 @@ export class CtDataStore {
         assignedUser: user ? { id: user.id, name: user.name, title: user.title, email: user.email } : null,
         assignedFacility: facility ? { id: facility.id, name: facility.name, location: facility.location } : null
       };
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Fairtrade Readiness Schema (Entities, Assessments, Results)
+  // --------------------------------------------------------------------------
+  createEntity(data) {
+    const entity_id = data.entity_id || this.nextEntityId++;
+    const entity = {
+      entity_id,
+      entity_name: data.entity_name,
+      entity_type: data.entity_type, // 'cooperative', 'farmer_group', 'processor', 'roaster'
+      region: data.region || null,
+      created_at: data.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.entities.set(entity_id, entity);
+    return entity;
+  }
+
+  getEntity(entityId) {
+    return this.entities.get(Number(entityId));
+  }
+
+  getAllEntities() {
+    return Array.from(this.entities.values());
+  }
+
+  createFairtradeAssessment(data) {
+    const assessment_id = data.assessment_id || this.nextAssessmentId++;
+    const entity_id = Number(data.entity_id);
+    const assessment = {
+      assessment_id,
+      entity_id,
+      assessment_date: data.assessment_date || new Date().toISOString().split('T')[0],
+      auditor_name: data.auditor_name || 'Auditor ICS Fairtrade',
+      democratic_premium_mgmt: Boolean(data.democratic_premium_mgmt),
+      transparent_pricing: Boolean(data.transparent_pricing),
+      no_child_forced_labor: Boolean(data.no_child_forced_labor),
+      ohs_ppe_compliance: Boolean(data.ohs_ppe_compliance),
+      fair_wages_contracts: Boolean(data.fair_wages_contracts),
+      waste_valorization_cci: Boolean(data.waste_valorization_cci),
+      no_forest_conversion: Boolean(data.no_forest_conversion),
+      reduced_chemical_use: Boolean(data.reduced_chemical_use),
+      plot_mapping_complete: Boolean(data.plot_mapping_complete),
+      physical_segregation: Boolean(data.physical_segregation),
+      created_at: new Date().toISOString()
+    };
+    this.fairtradeAssessments.set(assessment_id, assessment);
+
+    // Calculate FRI Result automatically
+    const calc = calculateFairtradeReadiness(assessment);
+    const result_id = this.nextResultId++;
+    const result = {
+      result_id,
+      assessment_id,
+      entity_id,
+      economic_score: calc.pillar_scores.economic,
+      social_score: calc.pillar_scores.social,
+      environmental_score: calc.pillar_scores.environmental,
+      governance_score: calc.pillar_scores.governance,
+      fri_total_score: calc.fairtrade_readiness_index,
+      readiness_status: calc.status.split('(')[0].trim(),
+      identified_gaps: calc.identified_gaps,
+      calculated_at: new Date().toISOString()
+    };
+    this.fairtradeResults.set(result_id, result);
+
+    return { assessment, result };
+  }
+
+  getFairtradeAssessments(entityId = null) {
+    let list = Array.from(this.fairtradeAssessments.values());
+    if (entityId) {
+      list = list.filter(a => a.entity_id === Number(entityId));
+    }
+    return list;
+  }
+
+  getFairtradeResults(entityId = null) {
+    let list = Array.from(this.fairtradeResults.values());
+    if (entityId) {
+      list = list.filter(r => r.entity_id === Number(entityId));
+    }
+    return list;
+  }
+
+  seedFairtradeEntitiesAndAssessments() {
+    this.createEntity({ entity_id: 1, entity_name: 'Koperasi Produsen Kopi Solok Radjo', entity_type: 'cooperative', region: 'Solok' });
+    this.createEntity({ entity_id: 2, entity_name: 'Koperasi Kopi Kintamani Organik', entity_type: 'cooperative', region: 'Kintamani' });
+    this.createEntity({ entity_id: 3, entity_name: 'Argopuro Specialty Coffee Processors', entity_type: 'processor', region: 'Argopuro' });
+    this.createEntity({ entity_id: 4, entity_name: 'Java Preanger Roastery & Lab', entity_type: 'roaster', region: 'Bandung' });
+
+    // Seed initial assessment for Solok Radjo (entity_id: 1) -> 100% Ready
+    this.createFairtradeAssessment({
+      assessment_id: 1,
+      entity_id: 1,
+      assessment_date: '2026-05-15',
+      auditor_name: 'Lead Verifier ICS Fairtrade',
+      democratic_premium_mgmt: true,
+      transparent_pricing: true,
+      no_child_forced_labor: true,
+      ohs_ppe_compliance: true,
+      fair_wages_contracts: true,
+      waste_valorization_cci: true,
+      no_forest_conversion: true,
+      reduced_chemical_use: true,
+      plot_mapping_complete: true,
+      physical_segregation: true
+    });
+
+    // Seed initial assessment for Kintamani (entity_id: 2) -> 75% Progressing
+    this.createFairtradeAssessment({
+      assessment_id: 2,
+      entity_id: 2,
+      assessment_date: '2026-05-18',
+      auditor_name: 'Lead Verifier ICS Fairtrade',
+      democratic_premium_mgmt: false,
+      transparent_pricing: true,
+      no_child_forced_labor: true,
+      ohs_ppe_compliance: true,
+      fair_wages_contracts: true,
+      waste_valorization_cci: false,
+      no_forest_conversion: true,
+      reduced_chemical_use: true,
+      plot_mapping_complete: true,
+      physical_segregation: true
     });
   }
 }

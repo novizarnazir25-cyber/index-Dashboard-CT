@@ -309,4 +309,47 @@ describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
     assert.strictEqual(postRes.body.fairtrade.fairtrade_readiness_index, 100.0);
     assert.strictEqual(postRes.body.fairtrade.status, 'Ready for Certification (Sangat Siap)');
   });
+
+  it('13. Relational Fairtrade Schema Endpoints (entities, assessments, results)', async () => {
+    // 1. Entities
+    const entRes = await makeRequest('/api/fairtrade/entities');
+    assert.strictEqual(entRes.status, 200);
+    assert.ok(Array.isArray(entRes.body.entities));
+    assert.ok(entRes.body.entities.length >= 4);
+
+    // 2. Assessments
+    const assRes = await makeRequest('/api/fairtrade/assessments?entity_id=1');
+    assert.strictEqual(assRes.status, 200);
+    assert.ok(Array.isArray(assRes.body.assessments));
+    assert.ok(assRes.body.assessments.length >= 1);
+
+    // 3. Create new assessment and verify auto-generated readiness result
+    const createRes = await makeRequest('/api/fairtrade/assessments', { method: 'POST' }, {
+      entity_id: 3, // Argopuro
+      assessment_date: '2026-06-01',
+      auditor_name: 'Lead Verifier Fairtrade',
+      democratic_premium_mgmt: true,
+      transparent_pricing: true,
+      no_child_forced_labor: true,
+      ohs_ppe_compliance: true,
+      fair_wages_contracts: true,
+      waste_valorization_cci: true,
+      no_forest_conversion: true,
+      reduced_chemical_use: true,
+      plot_mapping_complete: true,
+      physical_segregation: true
+    });
+
+    assert.strictEqual(createRes.status, 201);
+    assert.strictEqual(createRes.body.success, true);
+    assert.strictEqual(createRes.body.assessment.entity_id, 3);
+    assert.strictEqual(createRes.body.result.fri_total_score, 100);
+    assert.strictEqual(createRes.body.result.readiness_status, 'Ready for Certification');
+
+    // 4. Results
+    const resRes = await makeRequest('/api/fairtrade/results?entity_id=3');
+    assert.strictEqual(resRes.status, 200);
+    assert.ok(Array.isArray(resRes.body.results));
+    assert.strictEqual(resRes.body.results[0].fri_total_score, 100);
+  });
 });

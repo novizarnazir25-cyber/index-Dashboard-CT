@@ -1053,6 +1053,46 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // Fairtrade Schema CRUD Endpoints (Entities, Assessments, Results)
+    if (pathname === '/api/fairtrade/entities' && req.method === 'GET') {
+      const list = globalDataStore.getAllEntities();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, entities: list }));
+      return;
+    }
+
+    if (pathname === '/api/fairtrade/entities' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const entity = globalDataStore.createEntity(body);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, entity }));
+      return;
+    }
+
+    if (pathname === '/api/fairtrade/assessments' && req.method === 'GET') {
+      const entityId = url.searchParams.get('entity_id') || url.searchParams.get('entityId');
+      const list = globalDataStore.getFairtradeAssessments(entityId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, assessments: list }));
+      return;
+    }
+
+    if (pathname === '/api/fairtrade/assessments' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const { assessment, result } = globalDataStore.createFairtradeAssessment(body);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, assessment, result }));
+      return;
+    }
+
+    if (pathname === '/api/fairtrade/results' && req.method === 'GET') {
+      const entityId = url.searchParams.get('entity_id') || url.searchParams.get('entityId');
+      const list = globalDataStore.getFairtradeResults(entityId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, results: list }));
+      return;
+    }
+
     // 12. Audit Trail & Offline Sync
     if (pathname === '/api/audit-trail' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
