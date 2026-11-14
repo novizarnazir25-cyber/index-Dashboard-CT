@@ -5,7 +5,7 @@
   "main": "src/engine/calculation-pipeline.js",
   "type": "module",
   "scripts": {
-    "test": "node test/engine.test.js && node test/ct4ci.test.js && node test/integration.test.js",
+    "test": "node test/engine.test.js && node test/ct4ci.test.js && node test/fairtrade.test.js && node test/integration.test.js",
     "test:cci-sdi": "node test/engine.test.js",
     "test:ct4ci": "node test/ct4ci.test.js",
     "test:api": "node test/integration.test.js",

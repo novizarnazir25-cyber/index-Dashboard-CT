@@ -168,8 +168,8 @@
         </div>
       </div>
 
-      <!-- VIEW 1: TRIPLE MULTI-DIAL VIEW -->
-      <div id="dashboard-multi-dial" class="grid-3" style="margin-bottom: 16px;">
+      <!-- VIEW 1: MULTI-DIAL VIEW (CT-4CI, CT-CCI, CT-SDI, CT-FRI) -->
+      <div id="dashboard-multi-dial" class="grid-4" style="margin-bottom: 16px;">
         <!-- CT-4CI Box with SVG Circular Progress -->
         <div class="card" style="border-top: 4px solid var(--primary); margin-bottom: 0;">
           <div class="card-title">
@@ -300,6 +300,51 @@
             </div>
           </div>
         </div>
+
+        <!-- CT-FRI Box with SVG Circular Progress -->
+        <div class="card" style="border-top: 4px solid #7c3aed; margin-bottom: 0;">
+          <div class="card-title">
+            <span>⚖️ Fairtrade Readiness (FRI)</span>
+            <span class="badge" id="dash-fri-badge" style="background: #ede9fe; color: #6d28d9; font-size: 10px; font-weight: 700;">PROVISIONAL</span>
+          </div>
+
+          <!-- SVG Circular Diagram FRI -->
+          <div class="circular-chart-box">
+            <svg viewBox="0 0 36 36" class="circular-chart">
+              <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <path id="dash-fri-circle" class="circle-progress" stroke="#7c3aed" stroke-dasharray="85.00, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              <text id="score-ct-fri" x="18" y="16.5" class="percentage-text" style="fill: #7c3aed;">85.00</text>
+              <text id="dash-fri-status" x="18" y="22.5" class="category-text" style="fill: #7c3aed; font-size: 0.17em;">Ready for Cert</text>
+            </svg>
+            <div class="metric-lbl" style="margin-top: 4px;">Fairtrade Readiness Index (0–100)</div>
+            <div style="margin-top: 4px; font-size: 11px; color: var(--text-muted);">
+              Engine: <strong>CT-FRI Engine</strong> (Bobot 25% per Pilar)
+            </div>
+            <div style="font-size: 10px; color: #64748b; margin-top: 2px;">
+              Basis: Ekonomi, Sosial & K3, Lingkungan, Tata Kelola
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">SKOR 4 PILAR FAIRTRADE:</div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+              <span>Ekonomi (Premi & Harga):</span>
+              <strong id="dash-fri-dim-econ">100.00%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+              <span>Sosial & K3 (Bebas Anak, APD):</span>
+              <strong id="dash-fri-dim-soc">100.00%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+              <span>Lingkungan & CCI (Limbah, Hutan):</span>
+              <strong id="dash-fri-dim-env">100.00%</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px;">
+              <span>Tata Kelola (Plot GPS, Segregasi):</span>
+              <strong id="dash-fri-dim-gov">100.00%</strong>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- VIEW 2: CONCENTRIC MULTI-RING VIEW (Hidden by default) -->
@@ -377,8 +422,22 @@
               </div>
             </div>
 
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid #ddd6fe; background: #f5f3ff;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 12px; height: 12px; border-radius: 50%; background: #7c3aed; display: inline-block;"></span>
+                <div>
+                  <strong style="font-size: 12px; color: #4c1d95;">Kesiapan Sertifikasi: CT-FRI (Fairtrade Readiness)</strong>
+                  <div style="font-size: 11px; color: #6d28d9;">4 Pilar (Ekonomi, Sosial & K3, Lingkungan, Tata Kelola)</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <span id="dash-conc-score-fri" style="font-size: 16px; font-weight: 800; color: #6d28d9;">85.00</span>
+                <div id="dash-conc-status-fri" style="font-size: 10px; font-weight: 700; color: #7c3aed;">SANGAT SIAP</div>
+              </div>
+            </div>
+
             <div style="font-size: 11px; color: var(--text-muted); background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); line-height: 1.4;">
-              🛡️ <strong>Prinsip Integritas Metodologi:</strong> Ketiga indeks ini mengukur aspek berbeda (kepatuhan regulasi, sirkularitas fisik, dan keberlanjutan holistik) dan <em>tidak digabung menjadi skor komposit</em>.
+              🛡️ <strong>Prinsip Integritas Metodologi:</strong> Seluruh indeks (CT-4CI, CT-FRI, CT-CCI, dan CT-SDI) mengukur aspek berbeda secara mandiri dan <em>tidak digabung menjadi skor komposit</em>.
             </div>
           </div>
         </div>

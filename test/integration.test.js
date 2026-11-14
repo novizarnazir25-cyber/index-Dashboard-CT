@@ -275,4 +275,38 @@ describe('CIRCULARTRACE - HTTP REST API INTEGRATION TESTS', () => {
     assert.strictEqual(resolveRes.body.snapshot.majorGateStatus, 'PASSED');
     assert.strictEqual(resolveRes.body.snapshot.ct4ciScore, 100);
   });
+
+  it('12. GET /api/fairtrade/readiness and POST /api/fairtrade/calculate calculate Fairtrade Readiness Index (FRI)', async () => {
+    // 1. GET dynamic readiness from DB
+    const getRes = await makeRequest('/api/fairtrade/readiness?farmerId=FARMER-SLK-001&period=2026-PANEN-RAYA');
+    assert.strictEqual(getRes.status, 200);
+    assert.strictEqual(getRes.body.success, true);
+    assert.ok(getRes.body.fairtrade);
+    assert.ok(typeof getRes.body.fairtrade.fairtrade_readiness_index === 'number');
+    assert.ok(getRes.body.fairtrade.pillar_scores.economic !== undefined);
+    assert.ok(getRes.body.fairtrade.pillar_scores.social !== undefined);
+    assert.ok(getRes.body.fairtrade.pillar_scores.environmental !== undefined);
+    assert.ok(getRes.body.fairtrade.pillar_scores.governance !== undefined);
+
+    // 2. POST calculation with custom coop_data (e.g. perfect score)
+    const postRes = await makeRequest('/api/fairtrade/calculate', { method: 'POST' }, {
+      coop_data: {
+        democratic_premium_mgmt: true,
+        transparent_pricing: true,
+        no_child_forced_labor: true,
+        ohs_ppe_compliance: true,
+        fair_wages_contracts: true,
+        waste_valorization_cci: true,
+        no_forest_conversion: true,
+        reduced_chemical_use: true,
+        plot_mapping_complete: true,
+        physical_segregation: true
+      }
+    });
+
+    assert.strictEqual(postRes.status, 200);
+    assert.strictEqual(postRes.body.success, true);
+    assert.strictEqual(postRes.body.fairtrade.fairtrade_readiness_index, 100.0);
+    assert.strictEqual(postRes.body.fairtrade.status, 'Ready for Certification (Sangat Siap)');
+  });
 });

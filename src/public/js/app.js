@@ -326,6 +326,45 @@ async function loadDashboardOverview() {
       if (document.getElementById('dash-sdi-dim-g')) document.getElementById('dash-sdi-dim-g').textContent = (dims.G || 90.56).toFixed(2);
     }
 
+    // Fairtrade Readiness Index (FRI) Updates
+    if (indices.fairtrade) {
+      const fri = indices.fairtrade;
+      const friScore = Number(fri.fairtrade_readiness_index) || 0;
+      const friEl = document.getElementById('score-ct-fri');
+      if (friEl) friEl.textContent = friScore.toFixed(2);
+
+      const friStatusEl = document.getElementById('dash-fri-status');
+      if (friStatusEl) friStatusEl.textContent = (fri.status || '').split('(')[0].trim();
+
+      const friBadgeEl = document.getElementById('dash-fri-badge');
+      if (friBadgeEl) {
+        friBadgeEl.textContent = fri.statusBadge || 'EVALUATED';
+        friBadgeEl.className = `badge ${friScore >= 85 ? 'badge-pass' : (friScore >= 60 ? 'badge-pending' : 'badge-fail')}`;
+      }
+
+      // SVG Circular Progress Ring (Dial 4)
+      const friCircle = document.getElementById('dash-fri-circle');
+      if (friCircle) {
+        friCircle.setAttribute('stroke-dasharray', `${Math.min(Math.max(friScore, 0), 100).toFixed(2)}, 100`);
+      }
+
+      // Concentric panel summary
+      const concScoreFri = document.getElementById('dash-conc-score-fri');
+      if (concScoreFri) concScoreFri.textContent = friScore.toFixed(2);
+      const concStatusFri = document.getElementById('dash-conc-status-fri');
+      if (concStatusFri) {
+        concStatusFri.textContent = friScore >= 85 ? 'SANGAT SIAP' : (friScore >= 60 ? 'DALAM PROSES' : 'BUTUH PERBAIKAN');
+        concStatusFri.style.color = friScore >= 85 ? '#059669' : (friScore >= 60 ? '#d97706' : '#dc2626');
+      }
+
+      // 4 Pillars Breakdown
+      const p = fri.pillar_scores || {};
+      if (document.getElementById('dash-fri-dim-econ')) document.getElementById('dash-fri-dim-econ').textContent = `${(p.economic || 0).toFixed(2)}%`;
+      if (document.getElementById('dash-fri-dim-soc')) document.getElementById('dash-fri-dim-soc').textContent = `${(p.social || 0).toFixed(2)}%`;
+      if (document.getElementById('dash-fri-dim-env')) document.getElementById('dash-fri-dim-env').textContent = `${(p.environmental || 0).toFixed(2)}%`;
+      if (document.getElementById('dash-fri-dim-gov')) document.getElementById('dash-fri-dim-gov').textContent = `${(p.governance || 0).toFixed(2)}%`;
+    }
+
     // CT-IDSM Rules
     renderIdsmRules(currentFarmerId, period);
 

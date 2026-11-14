@@ -40,6 +40,10 @@ import {
   getRemedialActionForCheckpoint
 } from '../ct4ci/remedial-actions.js';
 import {
+  calculateFairtradeReadiness,
+  deriveCoopDataFromDatabase
+} from '../engine/fairtrade-engine.js';
+import {
   ApplicabilityDecision,
   EvidenceSufficiency,
   ComplianceResult,
@@ -974,10 +978,14 @@ const server = http.createServer(async (req, res) => {
       const totalArea = Array.from(globalDataStore.plots.values()).reduce((sum, p) => sum + (p.areaHa || 0), 0);
       const openCapas = globalDataStore.capaManager.getOpen().length;
 
+      // Fairtrade Readiness Index (FRI) calculation
+      const coopData = deriveCoopDataFromDatabase(globalDataStore, farmerId, period);
+      const friResult = calculateFairtradeReadiness(coopData);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
-        disclaimer: 'Indikator internal pra-audit. Bukan sertifikat atau keputusan audit resmi 4C.',
+        disclaimer: 'Indikator internal pra-audit. Bukan sertifikat atau keputusan audit resmi 4C / Fairtrade.',
         isSimulationData: true,
         indices: {
           ct4ci: ct4ciSnapshot ? {
@@ -1002,7 +1010,8 @@ const server = http.createServer(async (req, res) => {
             status: 'VERIFIED',
             dimensions: { E: 83.33, S: 85.56, Ec: 78.33, G: 90.56 },
             engineVersion: 'CT-SDI-Lite-1.0'
-          }
+          },
+          fairtrade: friResult
         },
         groupOverview: {
           totalFarmers,
@@ -1010,6 +1019,36 @@ const server = http.createServer(async (req, res) => {
           totalAreaHa: Math.round(totalArea * 10) / 10,
           openCapasCount: openCapas
         }
+      }));
+      return;
+    }
+
+    // Fairtrade Readiness Index (FRI) Endpoints
+    if (pathname === '/api/fairtrade/readiness' && req.method === 'GET') {
+      const farmerId = url.searchParams.get('farmerId') || 'FARMER-SLK-001';
+      const period = url.searchParams.get('period') || '2026-PANEN-RAYA';
+      const coopData = deriveCoopDataFromDatabase(globalDataStore, farmerId, period);
+      const fairtrade = calculateFairtradeReadiness(coopData);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        farmerId,
+        period,
+        fairtrade
+      }));
+      return;
+    }
+
+    if (pathname === '/api/fairtrade/calculate' && req.method === 'POST') {
+      const body = await parseJsonBody(req);
+      const coopData = body.coop_data || body.coopData || {};
+      const fairtrade = calculateFairtradeReadiness(coopData);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        fairtrade
       }));
       return;
     }
