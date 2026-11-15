@@ -366,7 +366,7 @@ async function loadDashboardOverview() {
     }
 
     // CT-IDSM Rules
-    renderIdsmRules(currentFarmerId, period);
+    renderIdsmRules(currentFarmerId, currentPeriod);
 
     // Group Overview Metrics
     if (groupOverview) {
